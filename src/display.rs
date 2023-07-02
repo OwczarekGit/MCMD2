@@ -263,9 +263,9 @@ impl Display {
         use crossterm::style::{Print};
         let mut stdout = stdout();
 
-        let text = self.search_string.get_display((self.width/2-2) as usize);
+        let text = self.search_string.get_display((self.width/2-4) as usize);
 
-        queue!(stdout, MoveTo(1,0), Print(text));
+        queue!(stdout, MoveTo(2,0), Print(text));
     } 
 
     fn clear_screen(&self) {
