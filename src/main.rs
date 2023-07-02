@@ -19,6 +19,8 @@ enum KeyAction {
     FocusDown,
     MoveLeft,
     MoveRight,
+    FocusFirst,
+    FocusLast,
     None,
 }
 
@@ -37,7 +39,27 @@ impl Display {
             width: size.0,
             height: size.1,
             left: Panel { width: size.0/2, height: size.1, panel_entries: vec![
-                PanelEntry::new("Hello"),
+                PanelEntry::new("Hello 1"),
+                PanelEntry::new("Hello 2"),
+                PanelEntry::new("Hello 3"),
+                PanelEntry::new("Hello 4"),
+                PanelEntry::new("Hello 5"),
+                PanelEntry::new("Hello 6"),
+                PanelEntry::new("Hello 7"),
+                PanelEntry::new("Hello 8"),
+                PanelEntry::new("Hello 9"),
+                PanelEntry::new("Hello 10"),
+                PanelEntry::new("Hello 11"),
+                PanelEntry::new("Hello 12"),
+                PanelEntry::new("Hello 13"),
+                PanelEntry::new("Hello 14"),
+                PanelEntry::new("Hello 15"),
+                PanelEntry::new("Hello 16"),
+                PanelEntry::new("Hello 17"),
+                PanelEntry::new("Hello 18"),
+                PanelEntry::new("Hello 19"),
+                PanelEntry::new("Hello 20"),
+                PanelEntry::new("Hello 21"),
                 PanelEntry::new("World!"),
                 PanelEntry::new("Some Long text that is likely to not fit within given range."),
             ], selection: 0 },
@@ -58,8 +80,8 @@ impl Display {
                         crossterm::event::KeyCode::Right => self.move_entry_left(),
                         crossterm::event::KeyCode::Up => self.focus_prev(),
                         crossterm::event::KeyCode::Down => self.focus_next(),
-                        // crossterm::event::KeyCode::Home => todo!(),
-                        // crossterm::event::KeyCode::End => todo!(),
+                        crossterm::event::KeyCode::Home => self.focus_first(),
+                        crossterm::event::KeyCode::End => self.focus_last(),
                         // crossterm::event::KeyCode::PageUp => todo!(),
                         // crossterm::event::KeyCode::PageDown => todo!(),
                         crossterm::event::KeyCode::Tab => self.swap_column(),
@@ -68,10 +90,12 @@ impl Display {
                         // crossterm::event::KeyCode::Insert => todo!(),
                         // crossterm::event::KeyCode::F(_) => todo!(),
                         crossterm::event::KeyCode::Char(c) => match self.handle_key(c) {
-                            KeyAction::FocusUp   => self.focus_prev(),
-                            KeyAction::FocusDown => self.focus_next(),
-                            KeyAction::MoveLeft  => self.move_entry_right(),
-                            KeyAction::MoveRight => self.move_entry_left(),
+                            KeyAction::FocusUp    => self.focus_prev(),
+                            KeyAction::FocusDown  => self.focus_next(),
+                            KeyAction::MoveLeft   => self.move_entry_right(),
+                            KeyAction::MoveRight  => self.move_entry_left(),
+                            KeyAction::FocusFirst => self.focus_first(),
+                            KeyAction::FocusLast  => self.focus_last(),
                             KeyAction::Quit => break 'event_loop,
                             KeyAction::None => {}
                         },
@@ -105,6 +129,8 @@ impl Display {
             'k' => KeyAction::FocusUp,
             'h' => KeyAction::MoveLeft,
             'l' => KeyAction::MoveRight,
+            'g' => KeyAction::FocusFirst,
+            'G' => KeyAction::FocusLast,
             _ => KeyAction::None,
         }
     }
@@ -135,6 +161,22 @@ impl Display {
         match self.focused_col {
             0 => self.left.decrease_selection(),
             1 => self.right.decrease_selection(),
+            _ => {},
+        }
+    }
+
+    fn focus_first(&mut self) {
+        match self.focused_col {
+            0 => self.left.focus_first(),
+            1 => self.right.focus_first(),
+            _ => {},
+        }
+    }
+
+    fn focus_last(&mut self) {
+        match self.focused_col {
+            0 => self.left.focus_last(),
+            1 => self.right.focus_last(),
             _ => {},
         }
     }
@@ -231,6 +273,14 @@ impl Panel {
 
     pub fn decrease_selection(&mut self) {
         self.selection = self.selection.saturating_sub(1)
+    }
+
+    pub fn focus_first(&mut self) {
+        self.selection = 0;
+    }
+
+    pub fn focus_last(&mut self) {
+        self.selection = (self.panel_entries.len() as isize - 1).max(0) as usize;
     }
 
     pub fn fix_selection(&mut self) {
