@@ -4,6 +4,7 @@ use std::{io::{Write, stdout}};
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue};
 
 mod core;
+mod search_field;
 mod display;
 mod modrinth;
 

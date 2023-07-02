@@ -1,4 +1,4 @@
-use crate::{core::{ApplicationMode, KeyAction}, Panel, PanelEntry, modrinth};
+use crate::{core::{ApplicationMode, KeyAction}, Panel, PanelEntry, modrinth, search_field::SearchField};
 use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
 use std::{io::{Write, stdout}};
 
@@ -10,7 +10,7 @@ pub struct Display {
     pub focused_col: u8,
     pub mode: ApplicationMode,
     pub should_close: bool,
-    pub search_string: String,
+    pub search_string: SearchField,
 }
 
 impl Display {
@@ -19,7 +19,7 @@ impl Display {
         Ok(Self {
             mode: ApplicationMode::Normal,
             should_close: false,
-            search_string: String::new(),
+            search_string: SearchField::new(),
             width: size.0,
             height: size.1,
             left: Panel::new(size.0/2, size.1),
@@ -59,7 +59,6 @@ impl Display {
 
     async fn handle_key_search_mode(&mut self, key: KeyEvent) {
         match key.code {
-            // crossterm::event::KeyCode::Backspace => todo!(),
             // crossterm::event::KeyCode::Left => todo!(),
             // crossterm::event::KeyCode::Right => todo!(),
             // crossterm::event::KeyCode::Up => todo!(),
@@ -85,15 +84,16 @@ impl Display {
             // crossterm::event::KeyCode::Media(_) => todo!(),
             // crossterm::event::KeyCode::Modifier(_) => todo!(),
             crossterm::event::KeyCode::Enter => {
-                self.search_mods(&self.search_string.clone()).await;
-                self.search_string = String::new();
+                self.search_mods(&self.search_string.get_text()).await;
+                self.search_string.clear();
 
                 self.enter_normal_mode();
                 self.focused_col = 0;
             },
             crossterm::event::KeyCode::Char(c) => {
-                self.search_string.push(c);
+                self.search_string.push_char(c);
             },
+            crossterm::event::KeyCode::Backspace => self.search_string.delete_last(),
             _ => {}
         }
     }
@@ -252,10 +252,21 @@ impl Display {
     fn draw_ui(&self) {
         self.left.draw_frame(0, 0, self.focused_col == 0);
         self.right.draw_frame(self.width/2, 0, self.focused_col == 1);
+        self.draw_search_field();
 
         self.left.draw_entries(1);
         self.right.draw_entries(self.width/2+1);
     }
+
+    fn draw_search_field(&self) {
+        use crossterm::cursor::{MoveTo};
+        use crossterm::style::{Print};
+        let mut stdout = stdout();
+
+        let text = self.search_string.get_display((self.width/2-2) as usize);
+
+        queue!(stdout, MoveTo(1,0), Print(text));
+    } 
 
     fn clear_screen(&self) {
         use crossterm::cursor::{MoveTo};
