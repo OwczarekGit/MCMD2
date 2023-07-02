@@ -1,5 +1,5 @@
 
-use std::{io::{Write, stdout}, f32::consts::E};
+use std::{io::{Write, stdout}, f32::consts::E, ops::Deref};
 
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue, cursor::{DisableBlinking, Hide}, style::SetForegroundColor};
 
@@ -17,6 +17,8 @@ enum KeyAction {
     Quit,
     FocusUp,
     FocusDown,
+    MoveLeft,
+    MoveRight,
     None,
 }
 
@@ -45,14 +47,15 @@ impl Display {
     }
 
     pub fn process_events(&mut self) {
+        self.redraw();
         'event_loop: loop {
             match crossterm::event::read().unwrap() {
                 crossterm::event::Event::Key(key) => {
                     match key.code {
                         // crossterm::event::KeyCode::Backspace => todo!(),
                         // crossterm::event::KeyCode::Enter => todo!(),
-                        // crossterm::event::KeyCode::Left => todo!(),
-                        // crossterm::event::KeyCode::Right => todo!(),
+                        crossterm::event::KeyCode::Left => self.move_entry_right(),
+                        crossterm::event::KeyCode::Right => self.move_entry_left(),
                         crossterm::event::KeyCode::Up => self.focus_prev(),
                         crossterm::event::KeyCode::Down => self.focus_next(),
                         // crossterm::event::KeyCode::Home => todo!(),
@@ -67,6 +70,8 @@ impl Display {
                         crossterm::event::KeyCode::Char(c) => match self.handle_key(c) {
                             KeyAction::FocusUp   => self.focus_prev(),
                             KeyAction::FocusDown => self.focus_next(),
+                            KeyAction::MoveLeft  => self.move_entry_right(),
+                            KeyAction::MoveRight => self.move_entry_left(),
                             KeyAction::Quit => break 'event_loop,
                             KeyAction::None => {}
                         },
@@ -98,7 +103,23 @@ impl Display {
             'q' => KeyAction::Quit,
             'j' => KeyAction::FocusDown,
             'k' => KeyAction::FocusUp,
+            'h' => KeyAction::MoveLeft,
+            'l' => KeyAction::MoveRight,
             _ => KeyAction::None,
+        }
+    }
+
+    fn move_entry_left(&mut self) {
+        match self.focused_col {
+            0 => self.left.move_to_panel(&mut self.right),
+            _ => {},
+        }
+    }
+    
+    fn move_entry_right(&mut self) {
+        match self.focused_col {
+            1 => self.right.move_to_panel(&mut self.left),
+            _ => {},
         }
     }
 
@@ -147,8 +168,8 @@ impl Display {
         self.left.draw_frame(0, 0, self.focused_col == 0);
         self.right.draw_frame(self.width/2, 0, self.focused_col == 1);
 
-        self.left.draw_entries();
-        self.right.draw_entries();
+        self.left.draw_entries(1);
+        self.right.draw_entries(self.width/2+1);
     }
 
     fn clear_screen(&self) {
@@ -205,11 +226,15 @@ impl Panel {
     }
 
     pub fn increase_selection(&mut self) {
-        self.selection = (self.selection + 1).clamp(0, self.panel_entries.len()-1);
+        self.selection = (self.selection + 1).clamp(0, (self.panel_entries.len() as isize - 1) as usize);
     }
 
     pub fn decrease_selection(&mut self) {
         self.selection = self.selection.saturating_sub(1)
+    }
+
+    pub fn fix_selection(&mut self) {
+        self.selection = self.selection.clamp(0, (self.panel_entries.len() as isize - 1) as usize);
     }
 
     pub fn resize(&mut self, x: u16, y: u16) {
@@ -224,16 +249,24 @@ impl Panel {
         let _ = queue!(stdout(), MoveTo(x,y), Print(c));
     }
 
-    pub fn draw_entries(&self) {
+    pub fn move_to_panel(&mut self, other_panel: &mut Panel) {
+        if let Some(_) = self.panel_entries.get(self.selection) {
+            let entry = self.panel_entries.remove(self.selection);
+            other_panel.panel_entries.push(entry);
+        }
+        self.fix_selection();
+    }
+
+    pub fn draw_entries(&self, xoff: u16) {
         use crossterm::style::{SetBackgroundColor};
         let mut stdout = stdout();
         for (i, entry) in self.panel_entries.iter().enumerate() {
             if self.selection.eq(&i) {
                 queue!(stdout, SetBackgroundColor(crossterm::style::Color::DarkBlue));
-                entry.draw(1, i as u16 + 1, self.width);
+                entry.draw(xoff, i as u16 + 1, self.width);
             } else {
                 queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
-                entry.draw(1, i as u16 + 1, self.width);
+                entry.draw(xoff, i as u16 + 1, self.width);
             }
         }
         queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
