@@ -1,20 +1,24 @@
-use crate::{core::{ApplicationMode, KeyAction}, Panel, PanelEntry, modrinth, search_field::SearchField};
+use crate::{core::{ApplicationMode, KeyAction, Preferences}, Panel, PanelEntry, modrinth, search_field::SearchField};
 use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
 use std::{io::{Write, stdout}};
 
 pub struct Display {
     pub width: u16,
     pub height: u16,
+
     pub left: Panel,
     pub right: Panel,
     pub focused_col: u8,
+
     pub mode: ApplicationMode,
-    pub should_close: bool,
     pub search_string: SearchField,
+    pub preferences: Preferences,
+
+    pub should_close: bool,
 }
 
 impl Display {
-    pub fn new() -> Result<Self, ()> {
+    pub fn new(preferences: Preferences) -> Result<Self, ()> {
         let size = crossterm::terminal::size().map_err(|_| ())?;
         Ok(Self {
             mode: ApplicationMode::Normal,
@@ -24,7 +28,8 @@ impl Display {
             height: size.1,
             left: Panel::new(size.0/2, size.1),
             right: Panel::new(size.0/2, size.1),
-            focused_col: 0
+            focused_col: 0,
+            preferences,
         })
     }
 
@@ -52,8 +57,8 @@ impl Display {
     }
 
     async fn search_mods(&mut self, query: &str) {
-        let mods = modrinth::search_mods(query, "1.20.1").await.unwrap();
-        let mut mods: Vec<PanelEntry> = mods.hits.iter().map(|item| PanelEntry{display_value: Box::new(item.title.to_owned())}).collect();
+        let mods = modrinth::search_mods(query, &self.preferences.version, self.preferences.mod_loader).await.unwrap();
+        let mut mods: Vec<PanelEntry<_>> = mods.hits.iter().map(|item| PanelEntry::new(item.clone())).collect();
         self.left.panel_entries.append(&mut mods);
     }
 
@@ -123,6 +128,7 @@ impl Display {
                 KeyAction::FocusFirst      => self.focus_first(),
                 KeyAction::FocusLast       => self.focus_last(),
                 KeyAction::StartSearchMode => self.enter_search_mode(),
+                KeyAction::Open            => self.open(),
                 KeyAction::Delete          => self.delete(),
                 KeyAction::Clear           => self.clear_left(),
                 KeyAction::Quit            => self.should_close = true,
@@ -152,9 +158,18 @@ impl Display {
             'g' => KeyAction::FocusFirst,
             'G' => KeyAction::FocusLast,
             'f' | '/' => KeyAction::StartSearchMode,
+            'o' => KeyAction::Open,
             'c' => KeyAction::Clear,
             'd' => KeyAction::Delete,
             _ => KeyAction::None,
+        }
+    }
+
+    fn open(&self) {
+        match self.focused_col {
+            0 => self.left.open_selected(),
+            1 => self.right.open_selected(),
+            _ => {},
         }
     }
 
@@ -171,16 +186,14 @@ impl Display {
     }
 
     fn move_entry_left(&mut self) {
-        match self.focused_col {
-            0 => self.left.move_to_panel(&mut self.right),
-            _ => {},
+        if self.focused_col == 0  {
+            self.left.move_to_panel(&mut self.right);
         }
     }
     
     fn move_entry_right(&mut self) {
-        match self.focused_col {
-            1 => self.right.move_to_panel(&mut self.left),
-            _ => {},
+        if self.focused_col == 1 {
+            self.right.move_to_panel(&mut self.left);
         }
     }
 
@@ -246,7 +259,7 @@ impl Display {
     pub fn redraw(&self) {
         self.clear_screen();
         self.draw_ui();
-        stdout().flush();
+        let _ = stdout().flush();
     }
 
     fn draw_ui(&self) {
@@ -265,7 +278,7 @@ impl Display {
 
         let text = self.search_string.get_display((self.width/2-4) as usize);
 
-        queue!(stdout, MoveTo(2,0), Print(text));
+        let _ = queue!(stdout, MoveTo(2,0), Print(text));
     } 
 
     fn clear_screen(&self) {
@@ -275,7 +288,7 @@ impl Display {
 
         for y in 0..self.height {
             for x in 0..self.width {
-                queue!(stdout, DisableBlinking, Hide, MoveTo(x,y), Print(' '));
+                let _ = queue!(stdout, DisableBlinking, Hide, MoveTo(x,y), Print(' '));
             }
         }
     }

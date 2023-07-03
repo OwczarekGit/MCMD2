@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 pub struct SearchField {
     text: String,
 }
@@ -12,8 +10,6 @@ impl SearchField {
     }
 
     pub fn get_display(&self, width: usize) -> String {
-        let prefix: String = "Search: ".to_string();
-
         let formatted = format!("Search: {}", self.text);
         
         if formatted.len() <= width {

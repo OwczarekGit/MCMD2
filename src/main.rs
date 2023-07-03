@@ -1,7 +1,10 @@
 
-use std::{io::{Write, stdout}};
+use std::{io::{stdout}, fmt::Display};
 
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue};
+use modrinth::ModrinthMod;
+use crate::core::{Url, Open};
+
 
 mod core;
 mod search_field;
@@ -12,29 +15,31 @@ mod modrinth;
 async fn main() -> Result<(),()> {
     core::init();
 
-    enable_raw_mode();
-    let mut display = display::Display::new().unwrap();
+    let _ =enable_raw_mode();
+    let prefs = core::Preferences::new("1.20.1".to_owned(), core::ModLoader::Fabric);
+
+    let mut display = display::Display::new(prefs).unwrap();
     display.process_events().await;
-    disable_raw_mode();
-    queue!(stdout(), Clear(crossterm::terminal::ClearType::All));
+    let _ = disable_raw_mode();
+    let _ = queue!(stdout(), Clear(crossterm::terminal::ClearType::All));
     Ok(())
 }
 
-pub struct PanelEntry {
-    display_value: Box<dyn std::fmt::Display>,
+pub struct PanelEntry<T> where T: Display + Open + Url {
+    data: T
 }
 
-impl PanelEntry {
-    pub fn new(display_value: impl std::fmt::Display + 'static) -> Self {
+impl PanelEntry<ModrinthMod> {
+    pub fn new(data: ModrinthMod) -> Self {
         Self {
-            display_value: Box::new(display_value)
+            data
         }
     }
     
     pub fn draw(&self, x: u16, y: u16, max_width: u16) {
-        let length = self.display_value.to_string().len();
+        let length = self.data.title.len();
         let display_string_length = (max_width-2).min(length as u16);
-        let chars = self.display_value.to_string().chars().collect::<Vec<char>>();
+        let chars = self.data.title.chars().collect::<Vec<char>>();
         let display_string = &chars[0..display_string_length as usize].iter().collect::<String>();
 
         let final_string = String::from_utf8(vec![b' '; (max_width-2) as usize]).unwrap();
@@ -51,7 +56,7 @@ impl PanelEntry {
 pub struct Panel {
     pub width: u16,
     pub height: u16,
-    pub panel_entries: Vec<PanelEntry>,
+    pub panel_entries: Vec<PanelEntry<ModrinthMod>>,
     pub selection: usize,
 }
 
@@ -60,8 +65,14 @@ impl Panel {
         Self { width: x, height: y, panel_entries: vec![], selection: 0 }
     }
 
+    pub fn open_selected(&self) {
+        if let Some(selected) = self.panel_entries.get(self.selection) {
+            selected.data.open();
+        }
+    }
+
     pub fn delete_selection(&mut self) {
-        if let Some(_) = self.panel_entries.get(self.selection) {
+        if self.panel_entries.get(self.selection).is_some() {
            let _ = self.panel_entries.remove(self.selection);
         }
         self.fix_selection();
@@ -100,7 +111,7 @@ impl Panel {
     }
 
     pub fn move_to_panel(&mut self, other_panel: &mut Panel) {
-        if let Some(_) = self.panel_entries.get(self.selection) {
+        if self.panel_entries.get(self.selection).is_some() {
             let entry = self.panel_entries.remove(self.selection);
             other_panel.panel_entries.push(entry);
         }
@@ -112,14 +123,14 @@ impl Panel {
         let mut stdout = stdout();
         for (i, entry) in self.panel_entries.iter().enumerate() {
             if self.selection.eq(&i) {
-                queue!(stdout, SetBackgroundColor(crossterm::style::Color::DarkBlue));
+                let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::DarkBlue));
                 entry.draw(xoff, i as u16 + 1, self.width);
             } else {
-                queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
+                let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
                 entry.draw(xoff, i as u16 + 1, self.width);
             }
         }
-        queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
+        let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
     }
 
     pub fn draw_frame(&self, offset_x: u16, offset_y: u16, bold: bool) {

@@ -25,6 +25,7 @@ pub enum KeyAction {
     FocusLast,
     Delete,
     StartSearchMode,
+    Open,
     Clear,
     None,
 }
@@ -34,7 +35,42 @@ pub enum ApplicationMode {
     Normal,
 }
 
+#[derive(Clone, Copy)]
+pub enum ModLoader {
+    Forge,
+    Fabric,
+}
+
+impl From<ModLoader> for String {
+    fn from(value: ModLoader) -> Self {
+        match value {
+            ModLoader::Forge => crate::core::loaders::FORGE.to_owned(),
+            ModLoader::Fabric => crate::core::loaders::FABRIC.to_owned(),
+        }
+    }
+}
+
 pub mod loaders {
     pub static FORGE:  &str = "forge";
     pub static FABRIC: &str = "fabric";
+}
+
+pub trait Url {
+    fn url(&self) -> String;
+}
+
+pub trait Open {
+    fn open(&self);
+}
+
+#[derive(Clone)]
+pub struct Preferences {
+    pub version: String,
+    pub mod_loader: ModLoader,
+}
+
+impl Preferences {
+    pub fn new(version: String, mod_loader: ModLoader) -> Self {
+        Self { version, mod_loader }
+    }
 }
