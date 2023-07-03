@@ -1,5 +1,7 @@
 use std::{sync::OnceLock};
 use reqwest::Client;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 
 pub static USER_AGENT: OnceLock<String> = OnceLock::new();
 
@@ -15,6 +17,7 @@ pub fn client() -> Client {
         .build().expect("Client to be created.")
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum KeyAction {
     Quit,
     FocusUp,
@@ -25,20 +28,43 @@ pub enum KeyAction {
     FocusLast,
     Delete,
     StartSearchMode,
+    Download,
     Open,
     Clear,
     None,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DownloadStatus {
+    Success,
+    Error,
+    AlreadyDownloaded,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum ApplicationMode {
     Search,
     Normal,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ModLoader {
     Forge,
     Fabric,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ModStatus {
+    Normal,
+    UpToDate,
+    CanUpdate,
+    Removed,
+}
+
+impl Default for ModStatus {
+    fn default() -> Self {
+        Self::Normal
+    }
 }
 
 impl From<ModLoader> for String {
@@ -61,6 +87,15 @@ pub trait Url {
 
 pub trait Open {
     fn open(&self);
+}
+
+pub trait Status {
+    fn status(&self) -> ModStatus;
+}
+
+#[async_trait]
+pub trait Download {
+    async fn download(&mut self) -> Result<DownloadStatus, ()>;
 }
 
 #[derive(Clone)]

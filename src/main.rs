@@ -1,8 +1,10 @@
 
+use crate::core::{Download, Status};
+use crate::core::ModStatus;
 use std::{io::{stdout}, fmt::Display};
 
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue};
-use modrinth::ModrinthMod;
+use modrinth::{ModrinthMod};
 use crate::core::{Url, Open};
 
 
@@ -15,7 +17,7 @@ mod modrinth;
 async fn main() -> Result<(),()> {
     core::init();
 
-    let _ =enable_raw_mode();
+    let _ = enable_raw_mode();
     let prefs = core::Preferences::new("1.20.1".to_owned(), core::ModLoader::Fabric);
 
     let mut display = display::Display::new(prefs).unwrap();
@@ -25,7 +27,7 @@ async fn main() -> Result<(),()> {
     Ok(())
 }
 
-pub struct PanelEntry<T> where T: Display + Open + Url {
+pub struct PanelEntry<T> where T: Display + Open + Url + Download + Status {
     data: T
 }
 
@@ -65,6 +67,14 @@ impl Panel {
         Self { width: x, height: y, panel_entries: vec![], selection: 0 }
     }
 
+    pub async fn download_all(&mut self) {
+        for entry in self.panel_entries.iter_mut() {
+            if let Ok(status) = entry.data.download().await {
+                entry.data.status = ModStatus::UpToDate;
+            }
+        }
+    }
+
     pub fn open_selected(&self) {
         if let Some(selected) = self.panel_entries.get(self.selection) {
             selected.data.open();
@@ -72,10 +82,20 @@ impl Panel {
     }
 
     pub fn delete_selection(&mut self) {
-        if self.panel_entries.get(self.selection).is_some() {
-           let _ = self.panel_entries.remove(self.selection);
+        if let Some(selection) = self.panel_entries.get(self.selection) {
+            match selection.data.status() {
+                core::ModStatus::UpToDate => todo!(),
+                core::ModStatus::CanUpdate => todo!(),
+                core::ModStatus::Removed => todo!(),
+                core::ModStatus::Normal => self.panel_entries.remove(self.selection),
+            };
+                
         }
         self.fix_selection();
+    }
+
+    pub fn get_focused(&self) -> Option<&PanelEntry<ModrinthMod>> {
+        self.panel_entries.get(self.selection)
     }
 
     pub fn increase_selection(&mut self) {

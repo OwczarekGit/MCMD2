@@ -1,4 +1,4 @@
-use crate::{core::{ApplicationMode, KeyAction, Preferences}, Panel, PanelEntry, modrinth, search_field::SearchField};
+use crate::{core::{ApplicationMode, KeyAction, Preferences, Status, ModStatus}, Panel, PanelEntry, modrinth, search_field::SearchField};
 use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
 use std::{io::{Write, stdout}};
 
@@ -40,7 +40,7 @@ impl Display {
             match crossterm::event::read().unwrap() {
                 crossterm::event::Event::Key(key) => {
                     match self.mode {
-                        ApplicationMode::Normal => self.handle_key_normal_mode(key),
+                        ApplicationMode::Normal => self.handle_key_normal_mode(key).await,
                         ApplicationMode::Search => self.handle_key_search_mode(key).await,
                     }
                 },
@@ -103,7 +103,7 @@ impl Display {
         }
     }
 
-    fn handle_key_normal_mode(&mut self, key: KeyEvent) {
+    async fn handle_key_normal_mode(&mut self, key: KeyEvent) {
         match key.code {
             // crossterm::event::KeyCode::Backspace => todo!(),
             // crossterm::event::KeyCode::Enter => todo!(),
@@ -130,6 +130,7 @@ impl Display {
                 KeyAction::StartSearchMode => self.enter_search_mode(),
                 KeyAction::Open            => self.open(),
                 KeyAction::Delete          => self.delete(),
+                KeyAction::Download        => self.download_all().await,
                 KeyAction::Clear           => self.clear_left(),
                 KeyAction::Quit            => self.should_close = true,
                 KeyAction::None => {}
@@ -160,7 +161,8 @@ impl Display {
             'f' | '/' => KeyAction::StartSearchMode,
             'o' => KeyAction::Open,
             'c' => KeyAction::Clear,
-            'd' => KeyAction::Delete,
+            'x' => KeyAction::Delete,
+            'd' => KeyAction::Download,
             _ => KeyAction::None,
         }
     }
@@ -171,6 +173,10 @@ impl Display {
             1 => self.right.open_selected(),
             _ => {},
         }
+    }
+
+    async fn download_all(&mut self) {
+        self.right.download_all().await;
     }
 
     fn clear_left(&mut self) {
@@ -192,7 +198,7 @@ impl Display {
     }
     
     fn move_entry_right(&mut self) {
-        if self.focused_col == 1 {
+        if self.focused_col == 1 && self.right.get_focused().is_some_and(|entry| entry.data.status() == ModStatus::Normal) {
             self.right.move_to_panel(&mut self.left);
         }
     }
@@ -232,7 +238,12 @@ impl Display {
     fn delete(&mut self) {
         match self.focused_col {
             0 => self.left.delete_selection(),
-            1 => self.right.delete_selection(),
+            1 => {
+                let can_delete = self.right.get_focused().is_some_and(|entry| entry.data.status() == ModStatus::Normal);
+                if can_delete {
+                    self.right.delete_selection();
+                }
+            }
             _ => {},
         }
     }
