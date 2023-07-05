@@ -1,8 +1,9 @@
 
-use crate::core::{Download, Status};
+use crate::core::{Download, Status, fit_string};
 use crate::core::ModStatus;
 use std::{io::{stdout}, fmt::Display};
 
+use crossterm::style::SetForegroundColor;
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue};
 use modrinth::{ModrinthMod};
 use crate::core::{Url, Open};
@@ -39,19 +40,9 @@ impl PanelEntry<ModrinthMod> {
     }
     
     pub fn draw(&self, x: u16, y: u16, max_width: u16) {
-        let length = self.data.title.len();
-        let display_string_length = (max_width-2).min(length as u16);
-        let chars = self.data.title.chars().collect::<Vec<char>>();
-        let display_string = &chars[0..display_string_length as usize].iter().collect::<String>();
-
-        let final_string = String::from_utf8(vec![b' '; (max_width-2) as usize]).unwrap();
-        let final_string = display_string[..display_string.len()].to_owned() + &final_string[display_string.len()..];
-
         use crossterm::cursor::{MoveTo};
         use crossterm::style::{Print};
-
-        let _ = queue!(stdout(), MoveTo(x,y), Print(final_string));
-
+        let _ = queue!(stdout(), MoveTo(x,y), Print(fit_string(&self.data.title, (max_width-2).into())));
     }
 }
 
@@ -70,8 +61,12 @@ impl Panel {
     pub async fn download_all(&mut self) {
         for entry in self.panel_entries.iter_mut() {
             if let Ok(status) = entry.data.download().await {
-                entry.data.status = ModStatus::UpToDate;
-            }
+                match status {
+                    core::DownloadStatus::Error => entry.data.status = ModStatus::CanUpdate,
+                    core::DownloadStatus::Success => entry.data.status = ModStatus::UpToDate,
+                    core::DownloadStatus::FileExists => entry.data.status = ModStatus::CanUpdate,
+                }
+            };
         }
     }
 
@@ -142,6 +137,16 @@ impl Panel {
         use crossterm::style::{SetBackgroundColor};
         let mut stdout = stdout();
         for (i, entry) in self.panel_entries.iter().enumerate() {
+
+            let text_color = match entry.data.status {
+                ModStatus::Normal => crossterm::style::Color::Reset,
+                ModStatus::UpToDate => crossterm::style::Color::Green,
+                ModStatus::CanUpdate => crossterm::style::Color::Cyan,
+                ModStatus::Removed => crossterm::style::Color::Red,
+            };
+
+            let _ = queue!(stdout, SetForegroundColor(text_color));
+
             if self.selection.eq(&i) {
                 let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::DarkBlue));
                 entry.draw(xoff, i as u16 + 1, self.width);
@@ -150,7 +155,7 @@ impl Panel {
                 entry.draw(xoff, i as u16 + 1, self.width);
             }
         }
-        let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
+        let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset), SetForegroundColor(crossterm::style::Color::Reset));
     }
 
     pub fn draw_frame(&self, offset_x: u16, offset_y: u16, bold: bool) {

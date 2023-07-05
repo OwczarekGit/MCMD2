@@ -1,10 +1,10 @@
-use std::{collections::{HashMap}, fmt::Display, fs::File, io::{Write}};
+use std::{collections::{HashMap}, fmt::Display};
 
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use async_trait::async_trait;
 
-use crate::core::{ModLoader, Url, Open, client, Download, Status, ModStatus, DownloadStatus};
+use crate::core::{ModLoader, Url, Open, client, Download, Status, ModStatus, DownloadStatus, download_file};
 
 pub static API_URL: &str = "https://api.modrinth.com/v2/";
 
@@ -91,44 +91,31 @@ impl Open for ModrinthMod {
 
 #[async_trait]
 impl Download for ModrinthMod {
-    async fn download(&mut self) -> Result<DownloadStatus, ()> {
-        if self.status() == ModStatus::UpToDate {
-            return Ok(DownloadStatus::AlreadyDownloaded);
+    type Output = Result<DownloadStatus, ()>;
+
+    async fn download(&mut self) -> Self::Output {
+
+        if self.status() == crate::core::ModStatus::UpToDate {
+            return Ok(DownloadStatus::Success);
         }
 
-        let client = client();
         let releases = self.get_releases().await;
         let release = releases.iter()
             .find(|release| release.fits_version_and_loader("1.20.1", ModLoader::Fabric));
+    
+        let release = release.ok_or(())?;
+        let file = release.files.first().ok_or(())?;
+        let filename = file.filename.clone();
+        let url = file.url.clone();
 
-            let release = release.ok_or(())?;
-            let file = release.files.first().ok_or(())?;
-            let filename = file.filename.clone();
-            let url = file.url.clone();
-
-            if File::open(filename.clone()).is_ok() {
-                return Ok(DownloadStatus::AlreadyDownloaded);
-            }
-            
-            let request = client.get(url).build().map_err(|_|())?;
-            let response = client.execute(request).await.map_err(|_|())?;
-            let bytes = response.text().await
-                .map_err(|_|())?
-                .as_bytes().to_owned();
-
-            
-            let mut file = File::create(filename).unwrap();
-            let _ = file.write_all(&bytes);
-            
-            self.status = ModStatus::UpToDate;
-
-        Ok(DownloadStatus::Success)
+    
+        Ok(download_file(&url, &filename).await)
     }
 }
 
 impl Status for ModrinthMod {
     fn status(&self) -> crate::core::ModStatus {
-        crate::core::ModStatus::Normal
+        self.status
     }
 }
 

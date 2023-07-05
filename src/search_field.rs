@@ -1,3 +1,5 @@
+use crate::core::fit_string;
+
 pub struct SearchField {
     text: String,
 }
@@ -12,11 +14,7 @@ impl SearchField {
     pub fn get_display(&self, width: usize) -> String {
         let formatted = format!("Search: {}", self.text);
         
-        if formatted.len() <= width {
-            format!("{:<width$}", formatted, width = width)
-        } else {
-            formatted.get(..width).unwrap().to_owned()
-        }
+        fit_string(&formatted, width)
     }
 
     pub fn push_char(&mut self, c: char) {

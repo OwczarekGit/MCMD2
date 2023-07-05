@@ -1,5 +1,5 @@
 use std::{sync::OnceLock};
-use reqwest::Client;
+use std::fs::{File, write};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -11,10 +11,39 @@ pub fn init() {
     USER_AGENT.get_or_init(|| format!("OwczarekGit/{}/{}", name, version));
 }
 
-pub fn client() -> Client {
+pub fn client() -> reqwest::Client {
     reqwest::ClientBuilder::new()
         .user_agent(USER_AGENT.get().expect("User agent to be set at this point."))
         .build().expect("Client to be created.")
+}
+
+pub async fn download_file(url: &str, filename: &str) -> DownloadStatus {
+    if file_exists(filename) {
+        return DownloadStatus::FileExists;
+    }
+
+    let Ok(response) = reqwest::get(url).await else {
+        return DownloadStatus::Error;
+    };
+
+    let file_bytes = response.bytes().await.expect("The file content to be there.");
+            
+    write("./mods/".to_owned() + filename, &file_bytes).expect("The file to be saved.");
+
+    DownloadStatus::Success
+}
+
+pub fn file_exists(filename: &str) -> bool {
+    File::open(filename.clone()).is_ok()
+}
+
+pub fn fit_string(text: &str, width: usize) -> String {
+    let formatted = format!("{}", text);
+    if formatted.len() <= width {
+        format!("{:<width$}", formatted, width = width)
+    } else {
+        formatted.get(..width).unwrap().to_owned()
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -38,7 +67,7 @@ pub enum KeyAction {
 pub enum DownloadStatus {
     Success,
     Error,
-    AlreadyDownloaded,
+    FileExists,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -95,7 +124,8 @@ pub trait Status {
 
 #[async_trait]
 pub trait Download {
-    async fn download(&mut self) -> Result<DownloadStatus, ()>;
+    type Output;
+    async fn download(&mut self) -> Self::Output;
 }
 
 #[derive(Clone)]
