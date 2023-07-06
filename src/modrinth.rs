@@ -53,8 +53,8 @@ impl Repository for ModrinthRepository {
         DownloadStatus::Success
     }
 
-    fn open(&self, _mod_identifier: &str) {
-
+    fn open(&self, mod_identifier: &str) {
+        let _ = open::that_detached(format!("https://modrinth.com/project/{}", mod_identifier));
     }
 
     fn url(&self, _mod_identifier: &str) -> String {
