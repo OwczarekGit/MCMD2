@@ -1,9 +1,9 @@
-use std::{path::PathBuf, fmt::Display};
+use std::{path::PathBuf};
 
-use async_trait::async_trait;
+
 use serde::{Serialize, Deserialize};
 
-use crate::{core::{ModStatus, ModLoader, Download, Url, Open, Status, DownloadStatus, ModRepository}, modrinth::ModrinthMod};
+use crate::{core::{ModStatus, ModLoader, Status, ModRepository}};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MinecraftMod {

@@ -6,7 +6,7 @@ use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 
 use crate::mc_mod::MinecraftMod;
-use crate::modrinth::ModrinthRepository;
+
 
 pub static USER_AGENT: OnceLock<String> = OnceLock::new();
 
@@ -137,20 +137,15 @@ pub trait Download {
 #[derive(Clone, Parser, Debug)]
 pub struct Preferences {
     pub path: PathBuf,
-    pub version: String,
-    pub mod_loader: ModLoader,
+    pub version: Option<String>,
+    pub mod_loader: Option<ModLoader>,
+    pub mod_repository: Option<ModRepository>,
 }
 
-impl Preferences {
-    pub fn new(version: String, mod_loader: ModLoader, path: PathBuf) -> Self {
-        Self { version, mod_loader, path }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum ModRepository {
     Modrinth,
-    //Curseforge(),
+    Curseforge,
 }
 
 #[async_trait]

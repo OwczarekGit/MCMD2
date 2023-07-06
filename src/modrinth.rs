@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use async_trait::async_trait;
 
-use crate::{core::{ModLoader, Url, Open, client, Download, Status, ModStatus, DownloadStatus, download_file, Repository}, mc_mod::MinecraftMod};
+use crate::{core::{ModLoader, Url, client, Status, ModStatus, DownloadStatus, Repository}, mc_mod::MinecraftMod};
 
 pub static API_URL: &str = "https://api.modrinth.com/v2/";
 
@@ -49,15 +49,15 @@ impl Repository for ModrinthRepository {
         ).collect()
     }
 
-    async fn download_mod(&self, mod_identifier: &str) -> DownloadStatus {
+    async fn download_mod(&self, _mod_identifier: &str) -> DownloadStatus {
         DownloadStatus::Success
     }
 
-    fn open(&self, mod_identifier: &str) {
+    fn open(&self, _mod_identifier: &str) {
 
     }
 
-    fn url(&self, mod_identifier: &str) -> String {
+    fn url(&self, _mod_identifier: &str) -> String {
         String::new()
     }
 }

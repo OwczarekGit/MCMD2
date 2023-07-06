@@ -1,4 +1,4 @@
-use crate::{core::{ApplicationMode, KeyAction, Preferences, Status, ModStatus, Repository}, Panel, PanelEntry, modrinth::{self, ModrinthRepository}, search_field::SearchField, mc_mod::ModDirectory};
+use crate::{core::{ApplicationMode, KeyAction, Status, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::ModDirectory};
 use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
 use std::{io::{Write, stdout}};
 
@@ -25,6 +25,7 @@ impl Display {
 
         let repository = match mod_directory.mod_repository {
             crate::core::ModRepository::Modrinth => Box::new(ModrinthRepository::default()),
+            crate::core::ModRepository::Curseforge => todo!(),
         };
 
         Ok(Self {

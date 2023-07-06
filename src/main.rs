@@ -1,16 +1,18 @@
 
-use crate::core::{Download, Status, fit_string, Preferences};
+use crate::core::{Status, fit_string};
 use crate::core::ModStatus;
-use crate::core::file_exists;
+
 use crate::core::Repository;
-use std::{io::{stdout}, fmt::Display};
+use crate::core::Preferences;
+use std::{io::{stdout}};
+
 
 use clap::Parser;
 use crossterm::style::SetForegroundColor;
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue};
 use mc_mod::{ModDirectory, MinecraftMod};
-use modrinth::{ModrinthMod};
-use crate::core::{Url, Open};
+
+use crate::core::{Open};
 
 
 mod core;
@@ -20,15 +22,36 @@ mod display;
 mod modrinth;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), String>{
     core::init();
-    let text = std::fs::read_to_string("./mods/mcmd.json").unwrap();
-    let mut mod_directory: ModDirectory = serde_json::from_str(&text).unwrap();
+    let mut prefs = Preferences::parse();
+    prefs.path.push("mcmd.json");
+
+    let text = match std::fs::read_to_string(prefs.path) {
+        Ok(text) => text,
+        Err(_) => {
+            if prefs.mod_loader.is_none() || prefs.version.is_none() || prefs.mod_repository.is_none() {
+                return Err("This seams to be a new mod directory. Please provide mod loader, game version and repository. ".to_owned());
+            } else {
+                let md = ModDirectory {
+                game_version: prefs.version.unwrap(),
+                mod_loader: prefs.mod_loader.unwrap(),
+                mod_repository: prefs.mod_repository.unwrap(),
+                mods: vec![]
+             };
+             serde_json::to_string(&md).unwrap()
+         }
+      }
+    };
+
+    let mod_directory: ModDirectory = serde_json::from_str(&text).unwrap();
     let _ = enable_raw_mode();
-    let mut display = display::Display::new(mod_directory);
+    let display = display::Display::new(mod_directory);
     display.unwrap().process_events().await;
     let _ = disable_raw_mode();
     let _ = queue!(stdout(), Clear(crossterm::terminal::ClearType::All));
+
+    Ok(())
 }
 
 pub struct PanelEntry {
