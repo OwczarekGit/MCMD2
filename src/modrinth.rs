@@ -1,12 +1,66 @@
-use std::{collections::{HashMap}, fmt::Display};
+use std::{collections::{HashMap}, fmt::Display, vec};
 
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use async_trait::async_trait;
 
-use crate::core::{ModLoader, Url, Open, client, Download, Status, ModStatus, DownloadStatus, download_file};
+use crate::{core::{ModLoader, Url, Open, client, Download, Status, ModStatus, DownloadStatus, download_file, Repository}, mc_mod::MinecraftMod};
 
 pub static API_URL: &str = "https://api.modrinth.com/v2/";
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct ModrinthRepository {
+    pub mods: HashMap<String, ModrinthMod>,
+}
+
+#[async_trait]
+impl Repository for ModrinthRepository {
+
+    async fn search_mods(&self, name: &str, version: &str, mod_loader: ModLoader) -> Vec<MinecraftMod> {
+        let client = crate::core::client();
+        let Ok(url) = reqwest::Url::parse_with_params(
+            &(API_URL.to_string() + "search"),
+            &[
+                ("query", name),
+                ("limit", "20"),
+                ("facets", format!("[[\"project_type:mod\"],[\"versions:{version}\"],[\"categories:{}\"]]", String::from(mod_loader)).as_str())
+            ]
+        ) else {
+            return vec![];
+        };
+
+        let request = client.get(url).build().unwrap();
+        let mods: ModrinthResponse = client.execute(request)
+            .await
+            .unwrap()
+            .json()
+            .await
+            .expect("The mods to be parsed correctly.");
+
+        let mods = mods.hits;
+
+        mods.iter().map(|m|
+            MinecraftMod {
+                coresponding_file: None,
+                mod_identifier: m.project_id.clone(),
+                name: m.title.clone(),
+                status: ModStatus::Normal,
+            }
+        ).collect()
+    }
+
+    async fn download_mod(&self, mod_identifier: &str) -> DownloadStatus {
+        DownloadStatus::Success
+    }
+
+    fn open(&self, mod_identifier: &str) {
+
+    }
+
+    fn url(&self, mod_identifier: &str) -> String {
+        String::new()
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModrinthMod {
@@ -56,12 +110,6 @@ pub struct ModrinthReleases {
     others: HashMap<String, Value>,
 }
 
-impl ModrinthReleases {
-    pub fn fits_version_and_loader(&self, version: &str, loader: ModLoader) -> bool {
-        self.game_versions.iter().find(|ver| *ver == version).is_some() && self.loaders.iter().find(|l| *l == &String::from(loader)).is_some()
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModrinthFile {
     pub url: String,
@@ -77,73 +125,10 @@ impl Display for ModrinthMod {
     }
 }
 
-impl Url for ModrinthMod {
-    fn url(&self) -> String {
-        format!("https://modrinth.com/mod/{}", self.slug)
-    }
-}
-
-impl Open for ModrinthMod {
-    fn open(&self) {
-        let _ = open::that(self.url());
-    }
-}
-
-#[async_trait]
-impl Download for ModrinthMod {
-    type Output = Result<DownloadStatus, ()>;
-
-    async fn download(&mut self) -> Self::Output {
-
-        if self.status() == crate::core::ModStatus::UpToDate {
-            return Ok(DownloadStatus::Success);
-        }
-
-        let releases = self.get_releases().await;
-        let release = releases.iter()
-            .find(|release| release.fits_version_and_loader("1.20.1", ModLoader::Fabric));
-    
-        let release = release.ok_or(())?;
-        let file = release.files.first().ok_or(())?;
-        let filename = file.filename.clone();
-        let url = file.url.clone();
-
-    
-        Ok(download_file(&url, &filename).await)
-    }
-}
-
-impl Status for ModrinthMod {
-    fn status(&self) -> crate::core::ModStatus {
-        self.status
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ModrinthResponse {
     pub hits: Vec<ModrinthMod>,
 
     #[serde(flatten)]
     other: HashMap<String, Value>,
-}
-
-pub async fn search_mods(name: &str, version: &str, mod_loader: ModLoader) -> Result<ModrinthResponse, ()> {
-    let client = crate::core::client();
-    let url = reqwest::Url::parse_with_params(
-        &(API_URL.to_string() + "search"),
-        &[
-            ("query", name),
-            ("limit", "20"),
-            ("facets", format!("[[\"project_type:mod\"],[\"versions:{version}\"],[\"categories:{}\"]]", String::from(mod_loader)).as_str())
-            ]
-    )
-    .map_err(|_| ())?;
-
-    let request = client.get(url).build().unwrap();
-    client.execute(request)
-        .await
-        .unwrap()
-        .json()
-        .await
-        .map_err(|_|())
 }

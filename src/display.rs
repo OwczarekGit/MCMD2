@@ -1,4 +1,4 @@
-use crate::{core::{ApplicationMode, KeyAction, Preferences, Status, ModStatus}, Panel, PanelEntry, modrinth, search_field::SearchField};
+use crate::{core::{ApplicationMode, KeyAction, Preferences, Status, ModStatus, Repository}, Panel, PanelEntry, modrinth::{self, ModrinthRepository}, search_field::SearchField, mc_mod::ModDirectory};
 use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
 use std::{io::{Write, stdout}};
 
@@ -12,14 +12,21 @@ pub struct Display {
 
     pub mode: ApplicationMode,
     pub search_string: SearchField,
-    pub preferences: Preferences,
+    pub mod_directory: ModDirectory,
+
+    pub repository: Box<dyn Repository>,
 
     pub should_close: bool,
 }
 
 impl Display {
-    pub fn new(preferences: Preferences) -> Result<Self, ()> {
+    pub fn new(mod_directory: ModDirectory) -> Result<Self, ()> {
         let size = crossterm::terminal::size().map_err(|_| ())?;
+
+        let repository = match mod_directory.mod_repository {
+            crate::core::ModRepository::Modrinth => Box::new(ModrinthRepository::default()),
+        };
+
         Ok(Self {
             mode: ApplicationMode::Normal,
             should_close: false,
@@ -29,7 +36,8 @@ impl Display {
             left: Panel::new(size.0/2, size.1),
             right: Panel::new(size.0/2, size.1),
             focused_col: 0,
-            preferences,
+            mod_directory,
+            repository,
         })
     }
 
@@ -57,8 +65,12 @@ impl Display {
     }
 
     async fn search_mods(&mut self, query: &str) {
-        let mods = modrinth::search_mods(query, &self.preferences.version, self.preferences.mod_loader).await.unwrap();
-        let mut mods: Vec<PanelEntry<_>> = mods.hits.iter().map(|item| PanelEntry::new(item.clone())).collect();
+        // let mods = modrinth::search_mods(query, &self.mod_directory.game_version, self.mod_directory.mod_loader).await.unwrap();
+        let mut mods = self.repository.search_mods(query, &self.mod_directory.game_version, self.mod_directory.mod_loader)
+            .await
+            .into_iter()
+            .map(|m|PanelEntry::new(m))
+            .collect();
         self.left.panel_entries.append(&mut mods);
     }
 
@@ -169,14 +181,14 @@ impl Display {
 
     fn open(&self) {
         match self.focused_col {
-            0 => self.left.open_selected(),
-            1 => self.right.open_selected(),
+            0 => self.left.open_selected(&self.repository),
+            1 => self.right.open_selected(&self.repository),
             _ => {},
         }
     }
 
     async fn download_all(&mut self) {
-        self.right.download_all().await;
+        self.right.download_all(&self.repository).await;
     }
 
     fn clear_left(&mut self) {
@@ -198,7 +210,7 @@ impl Display {
     }
     
     fn move_entry_right(&mut self) {
-        if self.focused_col == 1 && self.right.get_focused().is_some_and(|entry| entry.data.status() == ModStatus::Normal) {
+        if self.focused_col == 1 && self.right.get_focused().is_some_and(|entry| entry.data.status == ModStatus::Normal) {
             self.right.move_to_panel(&mut self.left);
         }
     }
@@ -239,7 +251,7 @@ impl Display {
         match self.focused_col {
             0 => self.left.delete_selection(),
             1 => {
-                let can_delete = self.right.get_focused().is_some_and(|entry| entry.data.status() == ModStatus::Normal);
+                let can_delete = self.right.get_focused().is_some_and(|entry| entry.data.status == ModStatus::Normal);
                 if can_delete {
                     self.right.delete_selection();
                 }

@@ -1,39 +1,42 @@
 
-use crate::core::{Download, Status, fit_string};
+use crate::core::{Download, Status, fit_string, Preferences};
 use crate::core::ModStatus;
+use crate::core::file_exists;
+use crate::core::Repository;
 use std::{io::{stdout}, fmt::Display};
 
+use clap::Parser;
 use crossterm::style::SetForegroundColor;
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue};
+use mc_mod::{ModDirectory, MinecraftMod};
 use modrinth::{ModrinthMod};
 use crate::core::{Url, Open};
 
 
 mod core;
+mod mc_mod;
 mod search_field;
 mod display;
 mod modrinth;
 
 #[tokio::main]
-async fn main() -> Result<(),()> {
+async fn main() {
     core::init();
-
+    let text = std::fs::read_to_string("./mods/mcmd.json").unwrap();
+    let mut mod_directory: ModDirectory = serde_json::from_str(&text).unwrap();
     let _ = enable_raw_mode();
-    let prefs = core::Preferences::new("1.20.1".to_owned(), core::ModLoader::Fabric);
-
-    let mut display = display::Display::new(prefs).unwrap();
-    display.process_events().await;
+    let mut display = display::Display::new(mod_directory);
+    display.unwrap().process_events().await;
     let _ = disable_raw_mode();
     let _ = queue!(stdout(), Clear(crossterm::terminal::ClearType::All));
-    Ok(())
 }
 
-pub struct PanelEntry<T> where T: Display + Open + Url + Download + Status {
-    data: T
+pub struct PanelEntry {
+    data: MinecraftMod,
 }
 
-impl PanelEntry<ModrinthMod> {
-    pub fn new(data: ModrinthMod) -> Self {
+impl PanelEntry {
+    pub fn new(data: MinecraftMod) -> Self {
         Self {
             data
         }
@@ -42,14 +45,14 @@ impl PanelEntry<ModrinthMod> {
     pub fn draw(&self, x: u16, y: u16, max_width: u16) {
         use crossterm::cursor::{MoveTo};
         use crossterm::style::{Print};
-        let _ = queue!(stdout(), MoveTo(x,y), Print(fit_string(&self.data.title, (max_width-2).into())));
+        let _ = queue!(stdout(), MoveTo(x,y), Print(fit_string(&self.data.name, (max_width-2).into())));
     }
 }
 
 pub struct Panel {
     pub width: u16,
     pub height: u16,
-    pub panel_entries: Vec<PanelEntry<ModrinthMod>>,
+    pub panel_entries: Vec<PanelEntry>,
     pub selection: usize,
 }
 
@@ -58,27 +61,25 @@ impl Panel {
         Self { width: x, height: y, panel_entries: vec![], selection: 0 }
     }
 
-    pub async fn download_all(&mut self) {
+    pub async fn download_all(&mut self, repository: &Box<dyn Repository>) {
         for entry in self.panel_entries.iter_mut() {
-            if let Ok(status) = entry.data.download().await {
-                match status {
-                    core::DownloadStatus::Error => entry.data.status = ModStatus::CanUpdate,
-                    core::DownloadStatus::Success => entry.data.status = ModStatus::UpToDate,
-                    core::DownloadStatus::FileExists => entry.data.status = ModStatus::CanUpdate,
-                }
+            match repository.download_mod(&entry.data.mod_identifier).await {
+                core::DownloadStatus::Error => entry.data.status = ModStatus::CanUpdate,
+                core::DownloadStatus::Success => entry.data.status = ModStatus::UpToDate,
+                core::DownloadStatus::FileExists => entry.data.status = ModStatus::CanUpdate,
             };
         }
     }
 
-    pub fn open_selected(&self) {
+    pub fn open_selected(&self, repository: &Box<dyn Repository>) {
         if let Some(selected) = self.panel_entries.get(self.selection) {
-            selected.data.open();
+            repository.open(&selected.data.mod_identifier);
         }
     }
 
     pub fn delete_selection(&mut self) {
         if let Some(selection) = self.panel_entries.get(self.selection) {
-            match selection.data.status() {
+            match selection.data.status {
                 core::ModStatus::UpToDate => todo!(),
                 core::ModStatus::CanUpdate => todo!(),
                 core::ModStatus::Removed => todo!(),
@@ -89,7 +90,7 @@ impl Panel {
         self.fix_selection();
     }
 
-    pub fn get_focused(&self) -> Option<&PanelEntry<ModrinthMod>> {
+    pub fn get_focused(&self) -> Option<&PanelEntry> {
         self.panel_entries.get(self.selection)
     }
 

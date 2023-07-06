@@ -1,7 +1,12 @@
+use std::path::{PathBuf, Path};
 use std::{sync::OnceLock};
 use std::fs::{File, write};
 use async_trait::async_trait;
+use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
+
+use crate::mc_mod::MinecraftMod;
+use crate::modrinth::ModrinthRepository;
 
 pub static USER_AGENT: OnceLock<String> = OnceLock::new();
 
@@ -26,15 +31,17 @@ pub async fn download_file(url: &str, filename: &str) -> DownloadStatus {
         return DownloadStatus::Error;
     };
 
-    let file_bytes = response.bytes().await.expect("The file content to be there.");
+    let Ok(file_bytes) = response.bytes().await else {
+        return DownloadStatus::Error;
+    };
             
     write("./mods/".to_owned() + filename, &file_bytes).expect("The file to be saved.");
 
     DownloadStatus::Success
 }
 
-pub fn file_exists(filename: &str) -> bool {
-    File::open(filename.clone()).is_ok()
+pub fn file_exists<P: AsRef<Path>>(filename: P) -> bool {
+    File::open(filename).is_ok()
 }
 
 pub fn fit_string(text: &str, width: usize) -> String {
@@ -76,7 +83,7 @@ pub enum ApplicationMode {
     Normal,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum ModLoader {
     Forge,
     Fabric,
@@ -124,18 +131,32 @@ pub trait Status {
 
 #[async_trait]
 pub trait Download {
-    type Output;
-    async fn download(&mut self) -> Self::Output;
+    async fn download(&mut self) -> DownloadStatus;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Parser, Debug)]
 pub struct Preferences {
+    pub path: PathBuf,
     pub version: String,
     pub mod_loader: ModLoader,
 }
 
 impl Preferences {
-    pub fn new(version: String, mod_loader: ModLoader) -> Self {
-        Self { version, mod_loader }
+    pub fn new(version: String, mod_loader: ModLoader, path: PathBuf) -> Self {
+        Self { version, mod_loader, path }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum ModRepository {
+    Modrinth,
+    //Curseforge(),
+}
+
+#[async_trait]
+pub trait Repository {
+    async fn search_mods(&self, name: &str, version: &str, mod_loader: ModLoader) -> Vec<MinecraftMod>;
+    async fn download_mod(&self, mod_identifier: &str) -> DownloadStatus;
+    fn open(&self, mod_identifier: &str);
+    fn url(&self, mod_identifier: &str) -> String;
 }
