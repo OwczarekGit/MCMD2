@@ -4,6 +4,8 @@ use crate::core::ModStatus;
 
 use crate::core::Repository;
 use crate::core::Preferences;
+use crate::core::ModLoader;
+use std::path::PathBuf;
 use std::{io::{stdout}};
 
 
@@ -22,6 +24,7 @@ mod modrinth;
 async fn main() -> Result<(), String>{
     core::init();
     let mut prefs = Preferences::parse();
+    let mut prefs2 = prefs.clone();
     prefs.path.push("mcmd.json");
 
     let text = match std::fs::read_to_string(prefs.path) {
@@ -43,7 +46,7 @@ async fn main() -> Result<(), String>{
 
     let mod_directory: ModDirectory = serde_json::from_str(&text).unwrap();
     let _ = enable_raw_mode();
-    let display = display::Display::new(mod_directory);
+    let display = display::Display::new(mod_directory, prefs2.path);
     display.unwrap().process_events().await;
     let _ = disable_raw_mode();
     let _ = queue!(stdout(), Clear(crossterm::terminal::ClearType::All));
@@ -81,9 +84,9 @@ impl Panel {
         Self { width: x, height: y, panel_entries: vec![], selection: 0 }
     }
 
-    pub async fn download_all(&mut self, repository: &Box<dyn Repository>) {
+    pub async fn download_all(&mut self, repository: &Box<dyn Repository>, mod_version: &str, loader: &ModLoader, location: &PathBuf) {
         for entry in self.panel_entries.iter_mut() {
-            match repository.download_mod(&entry.data.mod_identifier).await {
+            match repository.download_mod(&entry.data.mod_identifier, mod_version, loader, location).await {
                 core::DownloadStatus::Error => entry.data.status = ModStatus::CanUpdate,
                 core::DownloadStatus::Success => entry.data.status = ModStatus::UpToDate,
                 core::DownloadStatus::FileExists => entry.data.status = ModStatus::CanUpdate,

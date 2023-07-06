@@ -35,7 +35,7 @@ pub async fn download_file(url: &str, filename: &str) -> DownloadStatus {
         return DownloadStatus::Error;
     };
             
-    write("./mods/".to_owned() + filename, &file_bytes).expect("The file to be saved.");
+    write(filename, &file_bytes).expect("The file to be saved.");
 
     DownloadStatus::Success
 }
@@ -134,7 +134,7 @@ pub enum ModRepository {
 #[async_trait]
 pub trait Repository {
     async fn search_mods(&self, name: &str, version: &str, mod_loader: ModLoader) -> Vec<MinecraftMod>;
-    async fn download_mod(&self, mod_identifier: &str) -> DownloadStatus;
+    async fn download_mod(&self, mod_identifier: &str, version: &str, mod_loader: &ModLoader, location: &PathBuf) -> DownloadStatus;
     fn open(&self, mod_identifier: &str);
     fn url(&self, mod_identifier: &str) -> String;
 }

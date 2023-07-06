@@ -1,6 +1,6 @@
 use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::ModDirectory};
 use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
-use std::{io::{Write, stdout}};
+use std::{io::{Write, stdout}, path::PathBuf};
 
 pub struct Display {
     pub width: u16,
@@ -13,6 +13,7 @@ pub struct Display {
     pub mode: ApplicationMode,
     pub search_string: SearchField,
     pub mod_directory: ModDirectory,
+    pub mod_location: PathBuf,
 
     pub repository: Box<dyn Repository>,
 
@@ -20,7 +21,7 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new(mod_directory: ModDirectory) -> Result<Self, ()> {
+    pub fn new(mod_directory: ModDirectory, mod_location: PathBuf) -> Result<Self, ()> {
         let size = crossterm::terminal::size().map_err(|_| ())?;
 
         let repository = match mod_directory.mod_repository {
@@ -39,6 +40,7 @@ impl Display {
             focused_col: 0,
             mod_directory,
             repository,
+            mod_location,
         })
     }
 
@@ -189,7 +191,12 @@ impl Display {
     }
 
     async fn download_all(&mut self) {
-        self.right.download_all(&self.repository).await;
+        self.right.download_all(
+            &self.repository,
+            &self.mod_directory.game_version,
+            &self.mod_directory.mod_loader,
+            &self.mod_location
+        ).await;
     }
 
     fn clear_left(&mut self) {

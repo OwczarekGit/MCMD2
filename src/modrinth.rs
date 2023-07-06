@@ -1,16 +1,36 @@
 use std::{collections::{HashMap}, fmt::Display, vec};
 
+use clap::builder::Resettable;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use async_trait::async_trait;
+use std::{path::PathBuf};
 
-use crate::{core::{ModLoader, client, ModStatus, DownloadStatus, Repository}, mc_mod::MinecraftMod};
+use crate::{core::{ModLoader, client, ModStatus, DownloadStatus, Repository, download_file}, mc_mod::MinecraftMod};
 
 pub static API_URL: &str = "https://api.modrinth.com/v2/";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ModrinthRepository {
     pub mods: HashMap<String, ModrinthMod>,
+}
+
+impl ModrinthRepository {
+    pub async fn get_releases(&self, mod_identifier: &str) -> Vec<ModrinthReleases> {
+        let clinet = client();
+        let url = &format!("https://api.modrinth.com/v2/project/{}/version", mod_identifier);
+        let url = reqwest::Url::parse(url).expect("To parse correctly.");
+        let request = clinet.get(url).build().unwrap();
+
+        let response = clinet.execute(request)
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        response
+    }
 }
 
 #[async_trait]
@@ -49,8 +69,30 @@ impl Repository for ModrinthRepository {
         ).collect()
     }
 
-    async fn download_mod(&self, _mod_identifier: &str) -> DownloadStatus {
-        DownloadStatus::Success
+    async fn download_mod(&self, mod_identifier: &str, version: &str, loader: &ModLoader, location: &PathBuf) -> DownloadStatus {
+        let releases: Vec<ModrinthReleases> = self.get_releases(mod_identifier)
+            .await
+            .into_iter()
+            .filter(|m| m.fits_requirements(version, *loader))
+            .collect();
+
+        if releases.is_empty() {
+            return DownloadStatus::Error;
+        }
+
+        let release = releases.first().expect("The release to be found");
+
+        let Some(release) = release.files.first() else {
+            return DownloadStatus::Error;
+        };
+
+        let mut location = location.clone();
+        location.push(release.filename.clone());
+
+        download_file(
+            &release.url,
+            location.to_str().unwrap()
+        ).await
     }
 
     fn open(&self, mod_identifier: &str) {
@@ -80,23 +122,7 @@ pub struct ModrinthMod {
     other: HashMap<String, Value>,
 }
 
-impl ModrinthMod {
-    pub async fn get_releases(&self) -> Vec<ModrinthReleases> {
-        let clinet = client();
-        let url = &format!("https://api.modrinth.com/v2/project/{}/version", self.slug);
-        let url = reqwest::Url::parse(url).expect("To parse correctly.");
-        let request = clinet.get(url).build().unwrap();
-
-        let response = clinet.execute(request)
-            .await
-            .unwrap()
-            .json()
-            .await
-            .unwrap();
-
-        response
-    }
-}
+    
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModrinthReleases {
@@ -108,6 +134,13 @@ pub struct ModrinthReleases {
 
     #[serde(flatten)]
     others: HashMap<String, Value>,
+}
+
+impl ModrinthReleases {
+    pub fn fits_requirements(&self, version: &str, loader: ModLoader) -> bool {
+        self.game_versions.iter().find(|ver| *ver == version).is_some() 
+        && self.loaders.iter().find(|l| *l == &String::from(loader)).is_some()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
