@@ -1,4 +1,4 @@
-use crate::{core::{ApplicationMode, KeyAction, Status, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::ModDirectory};
+use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::ModDirectory};
 use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
 use std::{io::{Write, stdout}};
 

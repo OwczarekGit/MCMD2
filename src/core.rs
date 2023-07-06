@@ -117,23 +117,6 @@ pub mod loaders {
     pub static FABRIC: &str = "fabric";
 }
 
-pub trait Url {
-    fn url(&self) -> String;
-}
-
-pub trait Open {
-    fn open(&self);
-}
-
-pub trait Status {
-    fn status(&self) -> ModStatus;
-}
-
-#[async_trait]
-pub trait Download {
-    async fn download(&mut self) -> DownloadStatus;
-}
-
 #[derive(Clone, Parser, Debug)]
 pub struct Preferences {
     pub path: PathBuf,

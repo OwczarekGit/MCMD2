@@ -3,7 +3,7 @@ use std::{path::PathBuf};
 
 use serde::{Serialize, Deserialize};
 
-use crate::{core::{ModStatus, ModLoader, Status, ModRepository}};
+use crate::{core::{ModStatus, ModLoader, ModRepository}};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MinecraftMod {

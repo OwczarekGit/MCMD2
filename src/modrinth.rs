@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use async_trait::async_trait;
 
-use crate::{core::{ModLoader, Url, client, Status, ModStatus, DownloadStatus, Repository}, mc_mod::MinecraftMod};
+use crate::{core::{ModLoader, client, ModStatus, DownloadStatus, Repository}, mc_mod::MinecraftMod};
 
 pub static API_URL: &str = "https://api.modrinth.com/v2/";
 

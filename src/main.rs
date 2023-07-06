@@ -1,5 +1,5 @@
 
-use crate::core::{Status, fit_string};
+use crate::core::{fit_string};
 use crate::core::ModStatus;
 
 use crate::core::Repository;
@@ -11,9 +11,6 @@ use clap::Parser;
 use crossterm::style::SetForegroundColor;
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue};
 use mc_mod::{ModDirectory, MinecraftMod};
-
-use crate::core::{Open};
-
 
 mod core;
 mod mc_mod;
