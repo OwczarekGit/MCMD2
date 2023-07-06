@@ -1,17 +1,17 @@
 
-use crate::core::{fit_string};
 use crate::core::ModStatus;
 
 use crate::core::Repository;
 use crate::core::Preferences;
 use crate::core::ModLoader;
+use crate::core::fit_string;
 use std::io::stdout;
 use std::path::PathBuf;
 
 
 use clap::Parser;
+use crossterm::queue;
 use crossterm::style::SetForegroundColor;
-use crossterm::{terminal::{enable_raw_mode, disable_raw_mode, Clear}, queue};
 use mc_mod::{ModDirectory, MinecraftMod};
 
 mod core;
@@ -45,11 +45,9 @@ async fn main() -> Result<(), String>{
     };
 
     let mod_directory: ModDirectory = serde_json::from_str(&text).unwrap();
-    let _ = enable_raw_mode();
-    let display = display::Display::new(mod_directory, prefs2.path);
-    display.unwrap().process_events().await;
-    let _ = disable_raw_mode();
-    let _ = queue!(stdout(), Clear(crossterm::terminal::ClearType::All));
+    let mut display = display::Display::new(mod_directory, prefs2.path).unwrap();
+
+    display.process_events().await;
 
     Ok(())
 }

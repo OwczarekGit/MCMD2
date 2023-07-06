@@ -1,5 +1,5 @@
 use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::{ModDirectory}};
-use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
+use crossterm::{queue, cursor::{DisableBlinking, Hide, Show}, event::KeyEvent, terminal::{enable_raw_mode, disable_raw_mode, Clear}};
 use std::{io::{Write, stdout}, path::PathBuf};
 
 pub struct Display {
@@ -55,6 +55,7 @@ impl Display {
     }
 
     pub async fn process_events(&mut self) {
+        let _ = enable_raw_mode();
         'event_loop: loop {
             self.redraw();
 
@@ -195,6 +196,9 @@ impl Display {
             .for_each(|m| self.mod_directory.mods.push(m.data.clone()) );
 
         self.mod_directory.save(&self.mod_location);
+
+        let _ = disable_raw_mode();
+    let _ = queue!(stdout(), Show, Clear(crossterm::terminal::ClearType::All));
     }
 
     fn handle_key(&mut self, key: char) -> KeyAction {
