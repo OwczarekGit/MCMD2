@@ -1,4 +1,4 @@
-use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::ModDirectory};
+use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::{ModDirectory}};
 use crossterm::{queue, cursor::{DisableBlinking, Hide}, event::KeyEvent};
 use std::{io::{Write, stdout}, path::PathBuf};
 
@@ -29,6 +29,16 @@ impl Display {
             crate::core::ModRepository::Curseforge => todo!(),
         };
 
+        let mut right = Panel::new(size.0/2, size.1);
+        mod_directory.mods.iter().for_each(|m| right.panel_entries.push(PanelEntry { data: m.clone() }));
+
+        let mod_directory = ModDirectory { 
+            game_version: mod_directory.game_version.clone(), 
+            mod_loader: mod_directory.mod_loader, 
+            mod_repository: mod_directory.mod_repository.clone(),
+            mods: vec![]
+        };
+
         Ok(Self {
             mode: ApplicationMode::Normal,
             should_close: false,
@@ -36,7 +46,7 @@ impl Display {
             width: size.0,
             height: size.1,
             left: Panel::new(size.0/2, size.1),
-            right: Panel::new(size.0/2, size.1),
+            right,
             focused_col: 0,
             mod_directory,
             repository,
@@ -68,13 +78,26 @@ impl Display {
     }
 
     async fn search_mods(&mut self, query: &str) {
-        // let mods = modrinth::search_mods(query, &self.mod_directory.game_version, self.mod_directory.mod_loader).await.unwrap();
-        let mut mods = self.repository.search_mods(query, &self.mod_directory.game_version, self.mod_directory.mod_loader)
+
+       let mod_exists_in_panel = |panel: &Panel, mod_identifier: &str| {
+            panel.panel_entries
+            .iter()
+            .find(|entry| entry.data.mod_identifier == mod_identifier)
+            .is_some()
+        }; 
+
+        self.repository
+            .search_mods(query, &self.mod_directory.game_version, self.mod_directory.mod_loader)
             .await
             .into_iter()
-            .map(|m|PanelEntry::new(m))
-            .collect();
-        self.left.panel_entries.append(&mut mods);
+            .for_each(|m| {
+                let exists_left = mod_exists_in_panel(&self.left, &m.mod_identifier);
+                let exists_right = mod_exists_in_panel(&self.right, &m.mod_identifier);
+
+                if !exists_left && !exists_right {
+                    self.left.panel_entries.push(PanelEntry { data: m });
+                }
+            });
     }
 
     async fn handle_key_search_mode(&mut self, key: KeyEvent) {
@@ -147,10 +170,10 @@ impl Display {
                 KeyAction::Delete          => self.delete(),
                 KeyAction::Download        => self.download_all().await,
                 KeyAction::Clear           => self.clear_left(),
-                KeyAction::Quit            => self.should_close = true,
+                KeyAction::Quit            => self.exit(),
                 KeyAction::None => {}
             },
-            crossterm::event::KeyCode::Esc => self.should_close = true,
+            crossterm::event::KeyCode::Esc => self.exit(),
             // crossterm::event::KeyCode::CapsLock => todo!(),
             // crossterm::event::KeyCode::ScrollLock => todo!(),
             // crossterm::event::KeyCode::NumLock => todo!(),
@@ -160,8 +183,18 @@ impl Display {
             // crossterm::event::KeyCode::KeypadBegin => todo!(),
             // crossterm::event::KeyCode::Media(_) => todo!(),
             // crossterm::event::KeyCode::Modifier(_) => todo!(),
-            _ => todo!()
+            _ => {}
         }
+    }
+
+    fn exit(&mut self) {
+        self.should_close = true;
+
+        self.right.panel_entries
+            .iter()
+            .for_each(|m| self.mod_directory.mods.push(m.data.clone()) );
+
+        self.mod_directory.save(&self.mod_location);
     }
 
     fn handle_key(&mut self, key: char) -> KeyAction {

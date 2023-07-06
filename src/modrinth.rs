@@ -1,6 +1,5 @@
 use std::{collections::{HashMap}, fmt::Display, vec};
 
-use clap::builder::Resettable;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use async_trait::async_trait;

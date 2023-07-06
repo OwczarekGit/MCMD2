@@ -37,7 +37,16 @@ pub async fn download_file(url: &str, filename: &str) -> DownloadStatus {
             
     write(filename, &file_bytes).expect("The file to be saved.");
 
-    DownloadStatus::Success
+    let filename = PathBuf::from(filename)
+        .components()
+        .last()
+        .expect("The filename")
+        .as_os_str()
+        .to_str()
+        .expect("The filename")
+        .to_owned();
+
+    DownloadStatus::Success(filename)
 }
 
 pub fn file_exists<P: AsRef<Path>>(filename: P) -> bool {
@@ -70,9 +79,9 @@ pub enum KeyAction {
     None,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DownloadStatus {
-    Success,
+    Success(String),
     Error,
     FileExists,
 }

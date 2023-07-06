@@ -5,8 +5,8 @@ use crate::core::ModStatus;
 use crate::core::Repository;
 use crate::core::Preferences;
 use crate::core::ModLoader;
+use std::io::stdout;
 use std::path::PathBuf;
-use std::{io::{stdout}};
 
 
 use clap::Parser;
@@ -24,7 +24,7 @@ mod modrinth;
 async fn main() -> Result<(), String>{
     core::init();
     let mut prefs = Preferences::parse();
-    let mut prefs2 = prefs.clone();
+    let prefs2 = prefs.clone();
     prefs.path.push("mcmd.json");
 
     let text = match std::fs::read_to_string(prefs.path) {
@@ -88,7 +88,10 @@ impl Panel {
         for entry in self.panel_entries.iter_mut() {
             match repository.download_mod(&entry.data.mod_identifier, mod_version, loader, location).await {
                 core::DownloadStatus::Error => entry.data.status = ModStatus::CanUpdate,
-                core::DownloadStatus::Success => entry.data.status = ModStatus::UpToDate,
+                core::DownloadStatus::Success(filename) => {
+                    entry.data.status = ModStatus::UpToDate;
+                    entry.data.coresponding_file = Some(filename.into())
+                },
                 core::DownloadStatus::FileExists => entry.data.status = ModStatus::CanUpdate,
             };
         }
