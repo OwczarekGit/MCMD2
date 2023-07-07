@@ -1,6 +1,8 @@
 use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::{ModDirectory}};
 use crossterm::{queue, cursor::{DisableBlinking, Hide, Show}, event::KeyEvent, terminal::{enable_raw_mode, disable_raw_mode, Clear}};
 use std::{io::{Write, stdout}, path::PathBuf};
+use crate::core::ModRepository;
+use crate::curseforge::repository::CurseforgeRepository;
 
 pub struct Display {
     pub width: u16,
@@ -24,9 +26,9 @@ impl Display {
     pub fn new(mod_directory: ModDirectory, mod_location: PathBuf) -> Result<Self, ()> {
         let size = crossterm::terminal::size().map_err(|_| ())?;
 
-        let repository = match mod_directory.mod_repository {
-            crate::core::ModRepository::Modrinth => Box::new(ModrinthRepository::default()),
-            crate::core::ModRepository::Curseforge => todo!(),
+        let repository: Box<dyn Repository> = match mod_directory.mod_repository {
+            ModRepository::Modrinth => Box::<ModrinthRepository>::default(),
+            ModRepository::Curseforge => Box::<CurseforgeRepository>::default(),
         };
 
         let mut right = Panel::new(size.0/2, size.1);
@@ -35,7 +37,7 @@ impl Display {
         let mod_directory = ModDirectory { 
             game_version: mod_directory.game_version.clone(), 
             mod_loader: mod_directory.mod_loader, 
-            mod_repository: mod_directory.mod_repository.clone(),
+            mod_repository: mod_directory.mod_repository,
             mods: vec![]
         };
 
@@ -82,10 +84,9 @@ impl Display {
 
        let mod_exists_in_panel = |panel: &Panel, mod_identifier: &str| {
             panel.panel_entries
-            .iter()
-            .find(|entry| entry.data.mod_identifier == mod_identifier)
-            .is_some()
-        }; 
+                .iter()
+                .any(|entry| *entry.data.mod_identifier == *mod_identifier)
+        };
 
         self.repository
             .search_mods(query, &self.mod_directory.game_version, self.mod_directory.mod_loader)
@@ -167,7 +168,7 @@ impl Display {
                 KeyAction::FocusFirst      => self.focus_first(),
                 KeyAction::FocusLast       => self.focus_last(),
                 KeyAction::StartSearchMode => self.enter_search_mode(),
-                KeyAction::Open            => self.open(),
+                KeyAction::Open            => self.open().await,
                 KeyAction::Delete          => self.delete(),
                 KeyAction::Download        => self.download_all().await,
                 KeyAction::Clear           => self.clear_left(),
@@ -219,10 +220,10 @@ impl Display {
         }
     }
 
-    fn open(&self) {
+    async fn open(&self) {
         match self.focused_col {
-            0 => self.left.open_selected(&self.repository),
-            1 => self.right.open_selected(&self.repository),
+            0 => self.left.open_selected(&self.repository).await,
+            1 => self.right.open_selected(&self.repository).await,
             _ => {},
         }
     }

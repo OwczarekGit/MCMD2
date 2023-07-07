@@ -54,7 +54,7 @@ pub fn file_exists<P: AsRef<Path>>(filename: P) -> bool {
 }
 
 pub fn fit_string(text: &str, width: usize) -> String {
-    let formatted = format!("{}", text);
+    let formatted = text.to_string();
     if formatted.len() <= width {
         format!("{:<width$}", formatted, width = width)
     } else {
@@ -115,8 +115,8 @@ impl Default for ModStatus {
 impl From<ModLoader> for String {
     fn from(value: ModLoader) -> Self {
         match value {
-            ModLoader::Forge => crate::core::loaders::FORGE.to_owned(),
-            ModLoader::Fabric => crate::core::loaders::FABRIC.to_owned(),
+            ModLoader::Forge => loaders::FORGE.to_owned(),
+            ModLoader::Fabric => loaders::FABRIC.to_owned(),
         }
     }
 }
@@ -144,6 +144,5 @@ pub enum ModRepository {
 pub trait Repository {
     async fn search_mods(&self, name: &str, version: &str, mod_loader: ModLoader) -> Vec<MinecraftMod>;
     async fn download_mod(&self, mod_identifier: &str, version: &str, mod_loader: &ModLoader, location: &PathBuf) -> DownloadStatus;
-    fn open(&self, mod_identifier: &str);
-    fn url(&self, mod_identifier: &str) -> String;
+    async fn open(&self, mod_identifier: &str);
 }

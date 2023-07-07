@@ -1,4 +1,3 @@
-
 use crate::core::ModStatus;
 
 use crate::core::Repository;
@@ -15,6 +14,7 @@ use crossterm::style::SetForegroundColor;
 use mc_mod::{ModDirectory, MinecraftMod};
 
 mod core;
+mod curseforge;
 mod mc_mod;
 mod search_field;
 mod display;
@@ -95,19 +95,19 @@ impl Panel {
         }
     }
 
-    pub fn open_selected(&self, repository: &Box<dyn Repository>) {
+    pub async fn open_selected(&self, repository: &Box<dyn Repository>) {
         if let Some(selected) = self.panel_entries.get(self.selection) {
-            repository.open(&selected.data.mod_identifier);
+            repository.open(&selected.data.mod_identifier).await;
         }
     }
 
     pub fn delete_selection(&mut self) {
         if let Some(selection) = self.panel_entries.get(self.selection) {
             match selection.data.status {
-                core::ModStatus::UpToDate => todo!(),
-                core::ModStatus::CanUpdate => todo!(),
-                core::ModStatus::Removed => todo!(),
-                core::ModStatus::Normal => self.panel_entries.remove(self.selection),
+                ModStatus::UpToDate => todo!(),
+                ModStatus::CanUpdate => todo!(),
+                ModStatus::Removed => todo!(),
+                ModStatus::Normal => self.panel_entries.remove(self.selection),
             };
                 
         }

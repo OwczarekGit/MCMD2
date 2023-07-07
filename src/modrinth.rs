@@ -11,24 +11,21 @@ pub static API_URL: &str = "https://api.modrinth.com/v2/";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ModrinthRepository {
-    pub mods: HashMap<String, ModrinthMod>,
 }
 
 impl ModrinthRepository {
     pub async fn get_releases(&self, mod_identifier: &str) -> Vec<ModrinthReleases> {
-        let clinet = client();
-        let url = &format!("https://api.modrinth.com/v2/project/{}/version", mod_identifier);
+        let client = client();
+        let url = &format!("{}project/{}/version", &API_URL, mod_identifier);
         let url = reqwest::Url::parse(url).expect("To parse correctly.");
-        let request = clinet.get(url).build().unwrap();
+        let request = client.get(url).build().unwrap();
 
-        let response = clinet.execute(request)
+        client.execute(request)
             .await
             .unwrap()
             .json()
             .await
-            .unwrap();
-
-        response
+            .unwrap()
     }
 }
 
@@ -36,7 +33,7 @@ impl ModrinthRepository {
 impl Repository for ModrinthRepository {
 
     async fn search_mods(&self, name: &str, version: &str, mod_loader: ModLoader) -> Vec<MinecraftMod> {
-        let client = crate::core::client();
+        let client = client();
         let Ok(url) = reqwest::Url::parse_with_params(
             &(API_URL.to_string() + "search"),
             &[
@@ -94,12 +91,8 @@ impl Repository for ModrinthRepository {
         ).await
     }
 
-    fn open(&self, mod_identifier: &str) {
+    async fn open(&self, mod_identifier: &str) {
         let _ = open::that_detached(format!("https://modrinth.com/project/{}", mod_identifier));
-    }
-
-    fn url(&self, _mod_identifier: &str) -> String {
-        String::new()
     }
 }
 
@@ -137,8 +130,9 @@ pub struct ModrinthReleases {
 
 impl ModrinthReleases {
     pub fn fits_requirements(&self, version: &str, loader: ModLoader) -> bool {
-        self.game_versions.iter().find(|ver| *ver == version).is_some() 
-        && self.loaders.iter().find(|l| *l == &String::from(loader)).is_some()
+        self.game_versions.iter().any(|v| *v == version)
+        && self.loaders.iter().any(|l| *l == String::from(loader))
+
     }
 }
 

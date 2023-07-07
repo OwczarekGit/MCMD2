@@ -1,4 +1,5 @@
 use std::{path::PathBuf};
+use std::path::Path;
 
 
 use serde::{Serialize, Deserialize};
@@ -23,11 +24,11 @@ pub struct ModDirectory {
 }
 
 impl ModDirectory {
-    pub fn save(&self, path: &PathBuf) {
+    pub fn save(&self, path: &Path) {
         let text = serde_json::to_string_pretty(self)
             .expect("To turn into json");
 
-        let mut path = path.clone();
+        let mut path = path.to_path_buf();
         path.push("mcmd.json");
 
         let _ = std::fs::write(path, text);
