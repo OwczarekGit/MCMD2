@@ -1,3 +1,5 @@
+// https://docs.modrinth.com/api-spec/
+
 use std::{collections::{HashMap}, fmt::Display, vec};
 
 use serde::{Serialize, Deserialize};
