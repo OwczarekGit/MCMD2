@@ -59,7 +59,7 @@ impl Repository for ModrinthRepository {
 
         mods.iter().map(|m|
             MinecraftMod {
-                coresponding_file: None,
+                corresponding_file: None,
                 mod_identifier: m.project_id.clone(),
                 name: m.title.clone(),
                 status: ModStatus::Normal,

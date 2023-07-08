@@ -9,7 +9,7 @@ use crate::{core::{ModStatus, ModLoader, ModRepository}};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MinecraftMod {
     pub status: ModStatus,
-    pub coresponding_file: Option<PathBuf>,
+    pub corresponding_file: Option<PathBuf>,
     pub mod_identifier: String,
     pub name: String,
 }
@@ -25,7 +25,10 @@ pub struct ModDirectory {
 
 impl ModDirectory {
     pub fn save(&self, path: &Path) {
-        let text = serde_json::to_string_pretty(self)
+        let mut me = self.clone();
+        me.mods.retain(|m| m.status != ModStatus::Bad);
+
+        let text = serde_json::to_string_pretty(&me)
             .expect("To turn into json");
 
         let mut path = path.to_path_buf();

@@ -6,6 +6,7 @@ use serde_json::Value;
 use crate::core::ModLoader;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct CurseforgeResponse {
     pub data: Vec<CurseforgeMod>,
 
@@ -14,10 +15,12 @@ pub struct CurseforgeResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct CurseforgeMod {
     pub id: u32,
     pub name: String,
     pub links: ModLink,
+    pub latest_files: Vec<LatestFile>,
 
 
     #[serde(flatten)]
@@ -28,6 +31,18 @@ pub struct CurseforgeMod {
 #[serde(rename_all = "camelCase")]
 pub struct ModLink {
     pub website_url: Option<String>,
+
+    #[serde(flatten)]
+    other: HashMap<String, Value>
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LatestFile {
+    pub id: u32,
+    pub file_name: Option<String>,
+    pub game_versions: Vec<String>,
+    pub download_url: Option<String>,
 
     #[serde(flatten)]
     other: HashMap<String, Value>

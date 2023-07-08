@@ -85,12 +85,12 @@ impl Panel {
     pub async fn download_all(&mut self, repository: &Box<dyn Repository>, mod_version: &str, loader: &ModLoader, location: &PathBuf) {
         for entry in self.panel_entries.iter_mut() {
             match repository.download_mod(&entry.data.mod_identifier, mod_version, loader, location).await {
-                core::DownloadStatus::Error => entry.data.status = ModStatus::CanUpdate,
+                core::DownloadStatus::Error => entry.data.status = ModStatus::Bad,
                 core::DownloadStatus::Success(filename) => {
-                    entry.data.status = ModStatus::UpToDate;
-                    entry.data.coresponding_file = Some(filename.into())
+                    entry.data.status = ModStatus::Ok;
+                    entry.data.corresponding_file = Some(filename.into())
                 },
-                core::DownloadStatus::FileExists => entry.data.status = ModStatus::CanUpdate,
+                core::DownloadStatus::FileExists => entry.data.status = ModStatus::Ok,
             };
         }
     }
@@ -104,9 +104,9 @@ impl Panel {
     pub fn delete_selection(&mut self) {
         if let Some(selection) = self.panel_entries.get(self.selection) {
             match selection.data.status {
-                ModStatus::UpToDate => todo!(),
+                ModStatus::Ok => todo!(),
                 ModStatus::CanUpdate => todo!(),
-                ModStatus::Removed => todo!(),
+                ModStatus::Bad => todo!(),
                 ModStatus::Normal => self.panel_entries.remove(self.selection),
             };
                 
@@ -158,26 +158,26 @@ impl Panel {
         self.fix_selection();
     }
 
-    pub fn draw_entries(&self, xoff: u16) {
+    pub fn draw_entries(&self, x_off: u16) {
         use crossterm::style::{SetBackgroundColor};
         let mut stdout = stdout();
         for (i, entry) in self.panel_entries.iter().enumerate() {
 
             let text_color = match entry.data.status {
                 ModStatus::Normal => crossterm::style::Color::Reset,
-                ModStatus::UpToDate => crossterm::style::Color::Green,
-                ModStatus::CanUpdate => crossterm::style::Color::Cyan,
-                ModStatus::Removed => crossterm::style::Color::Red,
+                ModStatus::Ok => crossterm::style::Color::Green,
+                ModStatus::CanUpdate => crossterm::style::Color::Yellow,
+                ModStatus::Bad => crossterm::style::Color::Red,
             };
 
             let _ = queue!(stdout, SetForegroundColor(text_color));
 
             if self.selection.eq(&i) {
                 let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::DarkBlue));
-                entry.draw(xoff, i as u16 + 1, self.width);
+                entry.draw(x_off, i as u16 + 1, self.width);
             } else {
                 let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
-                entry.draw(xoff, i as u16 + 1, self.width);
+                entry.draw(x_off, i as u16 + 1, self.width);
             }
         }
         let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset), SetForegroundColor(crossterm::style::Color::Reset));

@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use crate::core::{client, DownloadStatus, ModLoader, ModStatus, Repository};
+use crate::core::{client, download_file, DownloadStatus, ModLoader, ModStatus, Repository};
 use async_trait::async_trait;
 use crate::curseforge::connection::{API_URL_V1, GAME_ID, X_API_KEY};
 use crate::curseforge::data::{CurseForgeGetModResponse, CurseforgeResponse, ModLoaderType};
@@ -10,6 +10,7 @@ pub struct CurseforgeRepository;
 
 #[async_trait]
 impl Repository for CurseforgeRepository {
+    // TODO: Filter out non mod results.
     async fn search_mods(&self, name: &str, version: &str, mod_loader: ModLoader) -> Vec<MinecraftMod> {
         let client = client();
         let url = format!("{}mods/search?gameId={}", API_URL_V1, GAME_ID);
@@ -43,13 +44,50 @@ impl Repository for CurseforgeRepository {
                     status: ModStatus::Normal,
                     name: m.name,
                     mod_identifier: m.id.to_string(),
-                    coresponding_file: None,
+                    corresponding_file: None,
                 }
             }).collect()
     }
 
+    // TODO: Figure out how to pick correct file for specified mod loader.
     async fn download_mod(&self, mod_identifier: &str, version: &str, mod_loader: &ModLoader, location: &PathBuf) -> DownloadStatus {
-        todo!()
+        let client = client();
+        let url = format!("{API_URL_V1}mods/{}", mod_identifier);
+
+        let request = client.get(url)
+            .header("x-api-key", X_API_KEY)
+            .build()
+            .unwrap();
+
+
+        let m: CurseForgeGetModResponse = client.execute(request).await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        let m = m.data;
+
+        let file = m.latest_files.iter()
+            .find(|lf| lf.game_versions.iter().any(|v| *v == version));
+
+        if let Some(file) = file {
+            let mut location = location.clone();
+
+            let Some(filename) = &file.file_name else {
+                return DownloadStatus::Error;
+            };
+
+            let Some(url) = &file.download_url else {
+                return DownloadStatus::Error;
+            };
+
+            location.push(filename);
+
+            download_file(url, location.to_str().unwrap()).await
+        } else {
+            DownloadStatus::Error
+        }
     }
 
     async fn open(&self, mod_identifier: &str) {

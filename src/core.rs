@@ -101,9 +101,9 @@ pub enum ModLoader {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ModStatus {
     Normal,
-    UpToDate,
+    Ok,
     CanUpdate,
-    Removed,
+    Bad,
 }
 
 impl Default for ModStatus {
