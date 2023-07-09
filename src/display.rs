@@ -1,8 +1,9 @@
-use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, modrinth::{ModrinthRepository}, search_field::SearchField, mc_mod::{ModDirectory}};
+use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, search_field::SearchField, mc_mod::{ModDirectory}};
 use crossterm::{queue, cursor::{DisableBlinking, Hide, Show}, event::KeyEvent, terminal::{enable_raw_mode, disable_raw_mode, Clear}};
 use std::{io::{Write, stdout}, path::PathBuf};
 use crate::core::ModRepository;
 use crate::curseforge::repository::CurseforgeRepository;
+use crate::modrinth::repository::ModrinthRepository;
 
 pub struct Display {
     pub width: u16,
