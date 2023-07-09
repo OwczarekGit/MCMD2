@@ -102,6 +102,7 @@ pub enum ModLoader {
 pub enum ModStatus {
     Normal,
     Ok,
+    Missing,
     CanUpdate,
     Bad,
 }

@@ -5,6 +5,7 @@ use std::path::Path;
 use serde::{Serialize, Deserialize};
 
 use crate::{core::{ModStatus, ModLoader, ModRepository}};
+use crate::core::file_exists;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MinecraftMod {
@@ -35,5 +36,21 @@ impl ModDirectory {
         path.push("mcmd.json");
 
         let _ = std::fs::write(path, text);
+    }
+
+    pub fn verify(&mut self, path: &Path) {
+        self.mods
+            .iter_mut()
+            .for_each(|m| {
+                if let Some(file) = &m.corresponding_file {
+                    let mut p = path.to_path_buf();
+                    p.push(file);
+
+                    if !file_exists(p) {
+                        m.status = ModStatus::Missing;
+                        m.corresponding_file = None;
+                    }
+                }
+            });
     }
 }

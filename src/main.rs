@@ -44,7 +44,8 @@ async fn main() -> Result<(), String>{
       }
     };
 
-    let mod_directory: ModDirectory = serde_json::from_str(&text).unwrap();
+    let mut mod_directory: ModDirectory = serde_json::from_str(&text).unwrap();
+    mod_directory.verify(&prefs2.path);
     let mut display = display::Display::new(mod_directory, prefs2.path).unwrap();
 
     display.process_events().await;
@@ -108,6 +109,7 @@ impl Panel {
                 ModStatus::CanUpdate => todo!(),
                 ModStatus::Bad => todo!(),
                 ModStatus::Normal => self.panel_entries.remove(self.selection),
+                ModStatus::Missing => todo!(),
             };
                 
         }
@@ -166,8 +168,9 @@ impl Panel {
             let text_color = match entry.data.status {
                 ModStatus::Normal => crossterm::style::Color::Reset,
                 ModStatus::Ok => crossterm::style::Color::Green,
-                ModStatus::CanUpdate => crossterm::style::Color::Yellow,
+                ModStatus::CanUpdate => crossterm::style::Color::Cyan,
                 ModStatus::Bad => crossterm::style::Color::Red,
+                ModStatus::Missing => crossterm::style::Color::Yellow,
             };
 
             let _ = queue!(stdout, SetForegroundColor(text_color));
