@@ -35,7 +35,7 @@ impl Display {
         };
 
         let mut right = Panel::new(size.0/2, size.1);
-        mod_directory.mods.iter().for_each(|m| right.panel_entries.push(PanelEntry { data: m.clone() }));
+        mod_directory.mods.iter().for_each(|m| right.panel_entries.push(PanelEntry::new(m.clone())));
 
         let mod_directory = ModDirectory { 
             game_version: mod_directory.game_version.clone(), 
@@ -61,6 +61,7 @@ impl Display {
 
     pub async fn process_events(&mut self) {
         let _ = enable_raw_mode();
+        self.clear_screen();
         'event_loop: loop {
             self.redraw();
 
@@ -241,11 +242,12 @@ impl Display {
     }
 
     fn clear_left(&mut self) {
-        self.left.panel_entries.clear();
+        self.left.clear_entries();
     }
 
     fn enter_search_mode(&mut self) {
         self.mode = ApplicationMode::Search;
+        self.search_string.clear();
     }
     
     fn enter_normal_mode(&mut self) {
@@ -326,7 +328,6 @@ impl Display {
     }
 
     pub fn redraw(&self) {
-        self.clear_screen();
         self.draw_ui();
         let _ = stdout().flush();
     }

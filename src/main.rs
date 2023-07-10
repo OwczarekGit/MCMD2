@@ -1,16 +1,5 @@
-
-
-
 use crate::core::Preferences;
-
-
-
-
-
-
 use clap::Parser;
-
-
 use mc_mod::{ModDirectory};
 use ui::tui::display;
 

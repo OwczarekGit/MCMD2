@@ -2,7 +2,7 @@ use std::io::stdout;
 use std::path::PathBuf;
 use crossterm::cursor::MoveTo;
 use crossterm::queue;
-use crate::core::{DownloadStatus, ModLoader, ModStatus, Repository};
+use crate::core::{DownloadStatus, fit_string, ModLoader, ModStatus, Repository};
 use crossterm::style::{SetForegroundColor, SetBackgroundColor, Print};
 use crate::ui::tui::glyphs;
 use crate::ui::tui::panel_entry::PanelEntry;
@@ -12,11 +12,12 @@ pub struct Panel {
     pub height: u16,
     pub panel_entries: Vec<PanelEntry>,
     pub selection: usize,
+    pub scroll: usize,
 }
 
 impl Panel {
     pub fn new(x: u16, y: u16) -> Self {
-        Self { width: x, height: y, panel_entries: vec![], selection: 0 }
+        Self { width: x, height: y, panel_entries: vec![], selection: 0, scroll: 0 }
     }
 
     pub async fn download_all(&mut self, repository: &Box<dyn Repository>, mod_version: &str, loader: &ModLoader, location: &PathBuf) {
@@ -52,16 +53,29 @@ impl Panel {
         self.fix_selection();
     }
 
+    pub fn clear_entries(&mut self) {
+        self.panel_entries.clear();
+        self.selection = 0;
+        self.scroll = 0;
+    }
+
     pub fn get_focused(&self) -> Option<&PanelEntry> {
         self.panel_entries.get(self.selection)
     }
 
     pub fn increase_selection(&mut self) {
         self.selection = (self.selection + 1).clamp(0, (self.panel_entries.len() as isize - 1) as usize);
+        if self.selection > (self.height-3) as usize {
+            self.scroll += 1;
+        }
     }
 
     pub fn decrease_selection(&mut self) {
-        self.selection = self.selection.saturating_sub(1)
+        self.selection = self.selection.saturating_sub(1);
+
+        if self.selection < self.scroll {
+            self.scroll -= 1;
+        }
     }
 
     pub fn focus_first(&mut self) {
@@ -82,7 +96,12 @@ impl Panel {
     }
 
     pub fn draw_character(&self, x: u16, y: u16, c: impl std::fmt::Display) {
-        let _ = queue!(stdout(), MoveTo(x,y), Print(c));
+        let _ = queue!(stdout(),
+            SetForegroundColor(crossterm::style::Color::Reset),
+            SetBackgroundColor(crossterm::style::Color::Reset),
+            MoveTo(x,y),
+            Print(c)
+        );
     }
 
     pub fn move_to_panel(&mut self, other_panel: &mut Panel) {
@@ -95,27 +114,30 @@ impl Panel {
 
     pub fn draw_entries(&self, x_off: u16) {
         let mut stdout = stdout();
-        for (i, entry) in self.panel_entries.iter().enumerate() {
 
-            let text_color = match entry.data.status {
-                ModStatus::Normal => crossterm::style::Color::Reset,
-                ModStatus::Ok => crossterm::style::Color::Green,
-                ModStatus::CanUpdate => crossterm::style::Color::Cyan,
-                ModStatus::Bad => crossterm::style::Color::Red,
-                ModStatus::Missing => crossterm::style::Color::Yellow,
-            };
+        for i in 0..self.height-2 {
+            if let Some(entry) = self.panel_entries.get(i as usize + self.scroll) {
+                let text_color = match entry.data.status {
+                    ModStatus::Normal => crossterm::style::Color::Reset,
+                    ModStatus::Ok => crossterm::style::Color::Green,
+                    ModStatus::CanUpdate => crossterm::style::Color::Cyan,
+                    ModStatus::Bad => crossterm::style::Color::Red,
+                    ModStatus::Missing => crossterm::style::Color::Yellow,
+                };
 
-            let _ = queue!(stdout, SetForegroundColor(text_color));
+                let bg_color = if self.selection == i as usize + self.scroll { crossterm::style::Color::DarkBlue } else { crossterm::style::Color::Reset };
 
-            if self.selection.eq(&i) {
-                let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::DarkBlue));
-                entry.draw(x_off, i as u16 + 1, self.width);
+                let _ = queue!(stdout, SetForegroundColor(text_color), SetBackgroundColor(bg_color));
+                entry.draw(x_off, i+1, self.width);
             } else {
-                let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset));
-                entry.draw(x_off, i as u16 + 1, self.width);
+                let _ = queue!(stdout,
+                    SetForegroundColor(crossterm::style::Color::Reset),
+                    SetBackgroundColor(crossterm::style::Color::Reset),
+                    MoveTo(x_off, i+1),
+                    Print(fit_string(" ", (self.width-2) as usize))
+                );
             }
         }
-        let _ = queue!(stdout, SetBackgroundColor(crossterm::style::Color::Reset), SetForegroundColor(crossterm::style::Color::Reset));
     }
 
     pub fn draw_frame(&self, offset_x: u16, offset_y: u16, bold: bool) {
