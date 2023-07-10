@@ -50,7 +50,7 @@ impl Repository for CurseforgeRepository {
     }
 
     // TODO: Figure out how to pick correct file for specified mod loader.
-    async fn download_mod(&self, mod_identifier: &str, version: &str, mod_loader: &ModLoader, location: &PathBuf) -> DownloadStatus {
+    async fn download_mod(&self, mod_identifier: &str, version: &str, _mod_loader: &ModLoader, location: &PathBuf) -> DownloadStatus {
         let client = client();
         let url = format!("{API_URL_V1}mods/{}", mod_identifier);
 
