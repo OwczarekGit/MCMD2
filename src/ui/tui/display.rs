@@ -1,9 +1,11 @@
-use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, Panel, PanelEntry, search_field::SearchField, mc_mod::{ModDirectory}};
+use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, search_field::SearchField, mc_mod::{ModDirectory}};
 use crossterm::{queue, cursor::{DisableBlinking, Hide, Show}, event::KeyEvent, terminal::{enable_raw_mode, disable_raw_mode, Clear}};
 use std::{io::{Write, stdout}, path::PathBuf};
 use crate::core::ModRepository;
 use crate::curseforge::repository::CurseforgeRepository;
 use crate::modrinth::repository::ModrinthRepository;
+use crate::ui::tui::panel::Panel;
+use crate::ui::tui::panel_entry::PanelEntry;
 
 pub struct Display {
     pub width: u16,
@@ -319,11 +321,8 @@ impl Display {
         self.width = x;
         self.height = y;
 
-        self.left.width = self.width / 2;
-        self.left.height = self.height;
-
-        self.right.width = self.width / 2;
-        self.right.height = self.width;
+        self.left.resize(self.width/2, self.height);
+        self.right.resize(self.width/2, self.height);
     }
 
     pub fn redraw(&self) {
