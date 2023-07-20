@@ -146,4 +146,5 @@ pub trait Repository {
     async fn search_mods(&self, name: &str, version: &str, mod_loader: ModLoader) -> Vec<MinecraftMod>;
     async fn download_mod(&self, mod_identifier: &str, version: &str, mod_loader: &ModLoader, location: &PathBuf) -> DownloadStatus;
     async fn open(&self, mod_identifier: &str);
+    async fn resolve_dependencies(&self, mod_identifier: &str, version: &str, mod_loader: &ModLoader) -> Vec<MinecraftMod>;
 }

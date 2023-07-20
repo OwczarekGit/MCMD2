@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::stdout;
 use std::path::PathBuf;
 use crossterm::cursor::MoveTo;
@@ -20,8 +21,16 @@ impl Panel {
         Self { width: x, height: y, panel_entries: vec![], selection: 0, scroll: 0 }
     }
 
-    pub async fn download_all(&mut self, repository: &Box<dyn Repository>, mod_version: &str, loader: &ModLoader, location: &PathBuf) {
-        for entry in self.panel_entries.iter_mut() {
+    pub async fn download_all(
+        &mut self,
+        repository: &Box<dyn Repository>,
+        mod_version: &str,
+        loader: &ModLoader,
+        location: &PathBuf,
+        callback: fn(i32, i32, String)
+    ) {
+        let count = self.panel_entries.len();
+        for (i, entry) in self.panel_entries.iter_mut().enumerate() {
             match repository.download_mod(&entry.data.mod_identifier, mod_version, loader, location).await {
                 DownloadStatus::Error => entry.data.status = ModStatus::Bad,
                 DownloadStatus::Success(filename) => {
@@ -30,7 +39,42 @@ impl Panel {
                 },
                 DownloadStatus::FileExists => entry.data.status = ModStatus::Ok,
             };
+
+            callback(i as i32, count as i32, entry.data.name.clone());
         }
+    }
+
+    pub async fn resolve_dependencies(
+        &mut self,
+        repository: &Box<dyn Repository>,
+        game_version: &str,
+        loader: &ModLoader,
+        callback: fn(i32, i32, String)
+    ) {
+        let mut dependencies = HashMap::new();
+        let entries_count = self.panel_entries.len();
+
+        for (i, entry) in self.panel_entries.iter().enumerate() {
+            repository.resolve_dependencies(
+                &entry.data.mod_identifier,
+                game_version,
+                loader
+            )
+                .await
+                .into_iter()
+                .for_each(|dep|{
+                    callback((i+1) as i32, entries_count as i32, entry.data.name.clone());
+                    dependencies.insert(dep.mod_identifier.clone(), dep);
+                });
+        }
+
+
+        dependencies.values()
+            .for_each(|dep| {
+                if self.panel_entries.iter().any(|e| e.data.mod_identifier.eq(&dep.mod_identifier)) {
+                    self.panel_entries.push(PanelEntry::new(dep.clone()))
+                }
+            });
     }
 
     pub async fn open_selected(&self, repository: &Box<dyn Repository>) {

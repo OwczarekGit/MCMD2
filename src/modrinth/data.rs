@@ -3,6 +3,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use crate::core::{ModLoader, ModStatus};
+use crate::mc_mod::MinecraftMod;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModrinthMod {
@@ -16,12 +17,21 @@ pub struct ModrinthMod {
     pub slug: String,
 
     #[serde(default)]
-    pub status: ModStatus,
+    pub mod_status: ModStatus,
 
     #[serde(flatten)]
     other: HashMap<String, Value>,
 }
 
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModrinthProject {
+    pub title: String,
+    pub id: String,
+
+    #[serde(flatten)]
+    other: HashMap<String, Value>,
+}
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,6 +41,7 @@ pub struct ModrinthReleases {
     pub files: Vec<ModrinthFile>,
     pub game_versions: Vec<String>,
     pub loaders: Vec<String>,
+    pub dependencies: Vec<ModrinthDependency>,
 
     #[serde(flatten)]
     others: HashMap<String, Value>,
@@ -53,6 +64,16 @@ pub struct ModrinthFile {
     others: HashMap<String, Value>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModrinthDependency {
+    pub version_id: Option<String>,
+    pub project_id: Option<String>,
+    pub dependency_type: String,
+
+    #[serde(flatten)]
+    others: HashMap<String, Value>,
+}
+
 impl Display for ModrinthMod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.title)
@@ -65,4 +86,15 @@ pub struct ModrinthResponse {
 
     #[serde(flatten)]
     other: HashMap<String, Value>,
+}
+
+impl From<ModrinthProject> for MinecraftMod {
+    fn from(value: ModrinthProject) -> Self {
+        MinecraftMod {
+            status: ModStatus::Normal,
+            name: value.title,
+            mod_identifier: value.id,
+            corresponding_file: None
+        }
+    }
 }

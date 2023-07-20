@@ -111,4 +111,8 @@ impl Repository for CurseforgeRepository {
             let _ = open::that_detached(url);
         }
     }
+
+    async fn resolve_dependencies(&self, _mod_identifier: &str, _version: &str, _mod_loader: &ModLoader) -> Vec<MinecraftMod> {
+        vec![]
+    }
 }

@@ -1,7 +1,7 @@
 use crate::{core::{ApplicationMode, KeyAction, ModStatus, Repository}, search_field::SearchField, mc_mod::{ModDirectory}};
-use crossterm::{queue, cursor::{DisableBlinking, Hide, Show}, event::KeyEvent, terminal::{enable_raw_mode, disable_raw_mode, Clear}};
+use crossterm::{queue, cursor::{DisableBlinking, Hide, Show}, event::KeyEvent, terminal::{enable_raw_mode, disable_raw_mode, Clear}, execute};
 use std::{io::{Write, stdout}, path::PathBuf};
-use crate::core::ModRepository;
+use crate::core::{ModRepository};
 use crate::curseforge::repository::CurseforgeRepository;
 use crate::modrinth::repository::ModrinthRepository;
 use crate::ui::tui::panel::Panel;
@@ -233,12 +233,36 @@ impl Display {
     }
 
     async fn download_all(&mut self) {
+        self.right.resolve_dependencies(
+            &self.repository,
+            &self.mod_directory.game_version,
+            &self.mod_directory.mod_loader,
+            |n,count,mod_name|
+                Self::display_download_status(n, count, mod_name, DownloadStep::ResolvingDependency)
+        ).await;
+
         self.right.download_all(
             &self.repository,
             &self.mod_directory.game_version,
             &self.mod_directory.mod_loader,
-            &self.mod_location
+            &self.mod_location,
+            |n,count,mod_name|
+                Self::display_download_status(n, count, mod_name, DownloadStep::Downloading)
         ).await;
+
+        Self::display_download_status(
+            self.right.panel_entries.len() as i32,
+            self.right.panel_entries.len() as i32,
+            "".to_string(),
+            DownloadStep::Done,
+        )
+    }
+
+    fn display_download_status(n: i32, count: i32, mod_name: String, step: DownloadStep) {
+        let mut stdout = stdout();
+
+        let formatted = format!("{}: {mod_name} ({n}/{count})", step.to_string());
+        let _ = execute!(stdout, crossterm::terminal::SetTitle(formatted));
     }
 
     fn clear_left(&mut self) {
@@ -360,6 +384,22 @@ impl Display {
             for x in 0..self.width {
                 let _ = queue!(stdout, DisableBlinking, Hide, MoveTo(x,y), Print(' '));
             }
+        }
+    }
+}
+
+enum DownloadStep {
+    ResolvingDependency,
+    Downloading,
+    Done,
+}
+
+impl ToString for DownloadStep {
+    fn to_string(&self) -> String {
+        match self {
+            DownloadStep::ResolvingDependency => "Resolving Dependencies".to_string(),
+            DownloadStep::Downloading => "Downloading".to_string(),
+            DownloadStep::Done => "Done".to_string(),
         }
     }
 }
