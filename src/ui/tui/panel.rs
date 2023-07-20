@@ -80,10 +80,12 @@ impl Panel {
 
     pub fn focus_first(&mut self) {
         self.selection = 0;
+        self.scroll = 0;
     }
 
     pub fn focus_last(&mut self) {
         self.selection = (self.panel_entries.len() as isize - 1).max(0) as usize;
+        self.scroll = self.panel_entries.len().saturating_sub(self.height as usize).saturating_add(2).max(0);
     }
 
     pub fn fix_selection(&mut self) {
