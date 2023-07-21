@@ -37,7 +37,11 @@ impl Panel {
                     entry.data.status = ModStatus::Ok;
                     entry.data.corresponding_file = Some(filename.into())
                 },
-                DownloadStatus::FileExists => entry.data.status = ModStatus::Ok,
+                DownloadStatus::FileExists(filename) =>
+                    {
+                        entry.data.status = ModStatus::Ok;
+                        entry.data.corresponding_file = Some(filename.into());
+                    },
             };
 
             callback(i as i32, count as i32, entry.data.name.clone());
@@ -71,7 +75,7 @@ impl Panel {
 
         dependencies.values()
             .for_each(|dep| {
-                if self.panel_entries.iter().any(|e| e.data.mod_identifier.eq(&dep.mod_identifier)) {
+                if !self.panel_entries.iter().any(|e| e.data.mod_identifier.eq(&dep.mod_identifier)) {
                     self.panel_entries.push(PanelEntry::new(dep.clone()))
                 }
             });

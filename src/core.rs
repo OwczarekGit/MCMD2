@@ -23,8 +23,17 @@ pub fn client() -> reqwest::Client {
 }
 
 pub async fn download_file(url: &str, filename: &str) -> DownloadStatus {
+    let filename_out = PathBuf::from(filename)
+        .components()
+        .last()
+        .expect("The filename")
+        .as_os_str()
+        .to_str()
+        .expect("The filename")
+        .to_owned();
+
     if file_exists(filename) {
-        return DownloadStatus::FileExists;
+        return DownloadStatus::FileExists(filename_out.to_owned());
     }
 
     let Ok(response) = reqwest::get(url).await else {
@@ -37,16 +46,8 @@ pub async fn download_file(url: &str, filename: &str) -> DownloadStatus {
             
     write(filename, &file_bytes).expect("The file to be saved.");
 
-    let filename = PathBuf::from(filename)
-        .components()
-        .last()
-        .expect("The filename")
-        .as_os_str()
-        .to_str()
-        .expect("The filename")
-        .to_owned();
 
-    DownloadStatus::Success(filename)
+    DownloadStatus::Success(filename_out)
 }
 
 pub fn file_exists<P: AsRef<Path>>(filename: P) -> bool {
@@ -83,7 +84,7 @@ pub enum KeyAction {
 pub enum DownloadStatus {
     Success(String),
     Error,
-    FileExists,
+    FileExists(String),
 }
 
 #[derive(Clone, Copy, Debug)]
