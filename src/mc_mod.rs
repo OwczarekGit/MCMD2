@@ -50,6 +50,8 @@ impl ModDirectory {
                         m.status = ModStatus::Missing;
                         m.corresponding_file = None;
                     }
+                } else {
+                    m.status = ModStatus::Missing;
                 }
             });
     }
